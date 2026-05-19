@@ -1,0 +1,43 @@
+services:
+  synapse-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    ports:
+      - "${CHAT_SERVICE_HOST_PORT}:${CHAT_SERVICE_CONTAINER_PORT}"
+
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_CONTAINER_PORT}/${POSTGRES_DB}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+
+      SPRING_REDIS_HOST: ${REDIS_HOST}
+      SPRING_REDIS_PORT: ${REDIS_CONTAINER_PORT}
+
+    depends_on:
+      - synapse-database
+      - synapse-cache
+
+  synapse-database:
+    image: ${POSTGRES_IMAGE}
+
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+    ports:
+      - "${POSTGRES_HOST_PORT}:${POSTGRES_CONTAINER_PORT}"
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  synapse-cache:
+    image: ${REDIS_IMAGE}
+
+    ports:
+      - "${REDIS_HOST_PORT}:${REDIS_CONTAINER_PORT}"
+
+volumes:
+  postgres_data:
