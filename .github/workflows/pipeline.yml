@@ -1,0 +1,31 @@
+name: Synapse Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+jobs:
+
+  quality:
+    uses: ./.github/workflows/_quality.yml
+
+  publish:
+    needs: quality
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/_publish.yml
+    secrets: inherit
+    with:
+      image: ghcr.io/${{ github.repository_owner }}/Synapse
+
+  deploy:
+    needs: publish
+    uses: ./.github/workflows/_deploy.yml
+    secrets: inherit
+    with:
+      image-tag: ${{ needs.publish.outputs.image-tag }}
+      gitops-repo: ${{ github.repository_owner }}/synapse-gitops
