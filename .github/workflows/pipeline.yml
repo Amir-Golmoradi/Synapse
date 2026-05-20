@@ -6,17 +6,21 @@ on:
   pull_request:
     branches: [ main ]
 
-permissions:
-  contents: read
+# Remove the global permissions restriction block so jobs can define what they need
 
 jobs:
-
   quality:
+    permissions:
+      contents: read
     uses: ./.github/workflows/_quality.yml
 
   publish:
     needs: quality
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Elevate permissions specifically for this job so it can push to GHCR
+    permissions:
+      contents: read
+      packages: write
     uses: ./.github/workflows/_publish.yml
     secrets: inherit
     with:
@@ -24,6 +28,9 @@ jobs:
 
   deploy:
     needs: publish
+    # Elevate permissions specifically for this job so it can write back to synapse-gitops
+    permissions:
+      contents: write
     uses: ./.github/workflows/_deploy.yml
     secrets: inherit
     with:
