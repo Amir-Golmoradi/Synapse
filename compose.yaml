@@ -3,41 +3,67 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-
+    container_name: synapse-service
     ports:
-      - "${CHAT_SERVICE_HOST_PORT}:${CHAT_SERVICE_CONTAINER_PORT}"
-
+      - "${SYNAPSE_SERVICE_HOST_PORT}:${SYNAPSE_SERVICE_CONTAINER_PORT}"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_CONTAINER_PORT}/${POSTGRES_DB}
+      # CRITICAL: We pass service names 'synapse-database' and 'synapse-cache' instead of localhost
+      SPRING_DATASOURCE_URL: jdbc:postgresql://synapse-database:${POSTGRES_CONTAINER_PORT}/${POSTGRES_DB}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
 
-      SPRING_REDIS_HOST: ${REDIS_HOST}
-      SPRING_REDIS_PORT: ${REDIS_CONTAINER_PORT}
+      SPRING_DATA_REDIS_HOST: synapse-cache
+      SPRING_DATA_REDIS_PORT: ${REDIS_CONTAINER_PORT}
 
+      JWT_SECRET: ${JWT_SECRET}
+    networks:
+      - synapse-network
+    # Prevents startup crashing by waiting for database health checks to clear
     depends_on:
-      - synapse-database
-      - synapse-cache
+      synapse-database:
+        condition: service_healthy
+      synapse-cache:
+        condition: service_healthy
 
   synapse-database:
     image: ${POSTGRES_IMAGE}
-
+    container_name: synapse-database
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-
     ports:
       - "${POSTGRES_HOST_PORT}:${POSTGRES_CONTAINER_PORT}"
-
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - synapse-network
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   synapse-cache:
     image: ${REDIS_IMAGE}
-
+    container_name: synapse-cache
+    command: redis-server --appendonly yes
     ports:
       - "${REDIS_HOST_PORT}:${REDIS_CONTAINER_PORT}"
+    volumes:
+      - redis_data:/data
+    networks:
+      - synapse-network
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
 volumes:
   postgres_data:
+  redis_data:
+
+networks:
+  synapse-network:
+    driver: bridge
