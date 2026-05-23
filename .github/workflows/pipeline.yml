@@ -1,38 +1,11 @@
 name: Synapse Pipeline
 
 on:
-  push:
-    branches: [ main ]
   pull_request:
     branches: [ main ]
-
-# Remove the global permissions restriction block so jobs can define what they need
 
 jobs:
   quality:
     permissions:
       contents: read
     uses: ./.github/workflows/_quality.yml
-
-  publish:
-    needs: quality
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    # Elevate permissions specifically for this job so it can push to GHCR
-    permissions:
-      contents: read
-      packages: write
-    uses: ./.github/workflows/_publish.yml
-    secrets: inherit
-    with:
-      image: ghcr.io/${{ github.repository_owner }}/Synapse
-
-  deploy:
-    needs: publish
-    # Elevate permissions specifically for this job so it can write back to synapse-gitops
-    permissions:
-      contents: write
-    uses: ./.github/workflows/_deploy.yml
-    secrets: inherit
-    with:
-      image-tag: ${{ needs.publish.outputs.image-tag }}
-      gitops-repo: ${{ github.repository_owner }}/synapse-gitops
