@@ -1,0 +1,53 @@
+server:
+  port: ${SYNAPSE_SERVICE_HOST_PORT}
+spring:
+  application:
+    name: Synapse
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID}
+            client-secret: ${GOOGLE_CLIENT_SECRET}
+    user:
+      name: user
+      password: user
+  datasource:
+    url: jdbc:postgresql://localhost:${POSTGRES_HOST_PORT}/${POSTGRES_DB}
+    username: ${POSTGRES_USER}
+    password: ${POSTGRES_PASSWORD}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+  flyway:
+    enabled: true
+    locations:
+      - classpath:db/create-table
+      - classpath:db/alter-table
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    display-request-duration: true
+    operations-sorter: method
+    tags-sorter: alpha
+
+scalar:
+  enabled: true
+  path: /scalar
+  url: /v3/api-docs
+  layout: modern
+  theme: deep_space
+  darkMode: true
+  searchHotKey: ctrl+k
+  documentDownloadType: both
+
+synapse:
+  jwt:
+    secret: ${JWT_SECRET}
+    token-expiration-ms: 900000          # 15 minutes — short-lived
+  refresh-token:
+    validity-days: 30              # 30-day refresh window
