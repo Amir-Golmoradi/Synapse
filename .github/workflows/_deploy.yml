@@ -1,0 +1,145 @@
+name: Update GitOps Manifest
+
+on:
+  workflow_call:
+    inputs:
+      image-tag:
+        description: Immutable image tag written into the Synapse Helm values
+        required: true
+        type: string
+
+      gitops-repo:
+        description: Owner and repository name of the GitOps repository
+        required: true
+        type: string
+
+      gitops-branch:
+        description: Target branch in the GitOps repository
+        required: false
+        default: main
+        type: string
+
+    secrets:
+      GITOPS_TOKEN:
+        description: Token with write access to the GitOps repository
+        required: true
+
+jobs:
+  update:
+    name: Update GitOps Manifest
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout GitOps repository
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ inputs.gitops-repo }}
+          ref: ${{ inputs.gitops-branch }}
+          token: ${{ secrets.GITOPS_TOKEN }}
+
+      - name: Update Synapse image tag
+        env:
+          IMAGE_TAG: ${{ inputs.image-tag }}
+          VALUES_FILE: charts/synapse/values.yaml
+        run: |
+          set -euo pipefail
+
+          python3 <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          image_tag = os.environ["IMAGE_TAG"]
+          values_file = Path(os.environ["VALUES_FILE"])
+
+          if not values_file.is_file():
+              raise SystemExit(
+                  f"GitOps values file does not exist: {values_file}"
+              )
+
+          lines = values_file.read_text(encoding="utf-8").splitlines(
+              keepends=True
+          )
+
+          image_section = None
+
+          for index, line in enumerate(lines):
+              content = line.rstrip("\r\n")
+
+              if re.fullmatch(r"image:\s*(?:#.*)?", content):
+                  image_section = index
+                  break
+
+          if image_section is None:
+              raise SystemExit(
+                  "Top-level 'image' section was not found in Helm values"
+              )
+
+          tag_lines = []
+
+          for index in range(image_section + 1, len(lines)):
+              content = lines[index].rstrip("\r\n")
+
+              if content and not content.startswith((" ", "\t", "#")):
+                  break
+
+              if re.match(r"^\s+tag:\s*.*$", content):
+                  tag_lines.append(index)
+
+          if len(tag_lines) != 1:
+              raise SystemExit(
+                  "Expected exactly one 'image.tag' property, "
+                  f"but found {len(tag_lines)}"
+              )
+
+          tag_index = tag_lines[0]
+          current_line = lines[tag_index]
+          current_content = current_line.rstrip("\r\n")
+          indentation = re.match(
+              r"^(\s*)tag:",
+              current_content,
+          ).group(1)
+
+          newline = "\n" if current_line.endswith("\n") else ""
+
+          lines[tag_index] = (
+              f'{indentation}tag: "{image_tag}"{newline}'
+          )
+
+          values_file.write_text(
+              "".join(lines),
+              encoding="utf-8",
+          )
+
+          print(f"Updated image.tag to {image_tag}")
+          PY
+
+      - name: Review manifest change
+        run: git diff --check
+
+      - name: Commit and push manifest update
+        env:
+          IMAGE_TAG: ${{ inputs.image-tag }}
+          GITOPS_BRANCH: ${{ inputs.gitops-branch }}
+        run: |
+          set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add charts/synapse/values.yaml
+
+          if git diff --cached --quiet; then
+            echo "GitOps manifest already uses image tag ${IMAGE_TAG}."
+            exit 0
+          fi
+
+          git commit \
+            -m "chore(deploy): bump synapse-backend to ${IMAGE_TAG}"
+
+          git push origin "HEAD:${GITOPS_BRANCH}"

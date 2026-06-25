@@ -1,0 +1,27 @@
+name: Synapse Release
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: synapse-release-main
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Maven Verify
+    permissions:
+      contents: read
+    uses: ./.github/workflows/_quality.yml
+
+  publish:
+    name: Publish Container Image
+    needs: quality
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/_publish.yml
+    with:
+      image: ghcr.io/${{ github.repository_owner }}/synapse
