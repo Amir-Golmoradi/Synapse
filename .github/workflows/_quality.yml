@@ -1,0 +1,51 @@
+name: Quality Gate
+
+on:
+  workflow_call:
+
+jobs:
+  verify:
+    name: Maven Verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+          cache-dependency-path: pom.xml
+
+      - name: Ensure Maven Wrapper is executable
+        run: chmod +x mvnw
+
+      - name: Run tests and quality gates
+        run: ./mvnw --batch-mode --no-transfer-progress clean verify
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: maven-test-reports
+          path: target/surefire-reports/
+          if-no-files-found: ignore
+
+      - name: Upload static analysis reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: static-analysis-reports
+          path: |
+            target/pmd.*
+            target/cpd.*
+            target/spotbugs.*
+            target/site/
+          if-no-files-found: ignore
