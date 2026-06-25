@@ -1,0 +1,8 @@
+# Staging profile — activated by SPRING_PROFILES_ACTIVE=stage
+spring:
+  jpa:
+    show-sql: false
+logging:
+  level:
+    dev.amir.synapse: INFO
+    org.springframework.web: INFO

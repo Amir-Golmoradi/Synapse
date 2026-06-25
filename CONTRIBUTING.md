@@ -708,57 +708,90 @@ If a secret is committed:
 
 ---
 
-## 12. Repository Cleanliness Rules
+## 12. Configuration and Environment Profiles
 
-The following must not enter Git:
+Synapse uses Spring profiles to vary behavior per environment **without
+changing source between branches**. The configuration files are identical on
+`develop`, `staging`, and `main`. Only the externally supplied active profile
+differs.
+
+### 12.1 Configuration Layout
 
 ```text
-.git/
-.idea/
-.vscode/
-target/
-build/
-out/
-node_modules/
-*.class
-*.jar
-*.log
-*.tmp
-*.swp
-.DS_Store
-.env
-coverage/
-local configuration
-IDE metadata
-database dumps
-temporary exports
+application.yml          # Shared base — complete, bootable, no active profile
+application-dev.yml      # Development overrides
+application-stage.yml    # Staging overrides
+application-prod.yml     # Production overrides
+application-test.yml     # Test overrides (stub until integration tests exist)
 ```
 
-Before staging files:
+`application.yml` must remain a complete, working configuration on its own.
+Profile files are **override layers**: each contains only the keys that differ
+from the base. Settings not named in a profile file are inherited from
+`application.yml`.
 
-```bash
-git status --short
+### 12.2 Profile Purpose
+
+| Profile | Purpose                                                            |
+|---------|-------------------------------------------------------------------|
+| `dev`   | Local and development environment. Verbose logging, SQL echo, API docs enabled. |
+| `stage` | Release-candidate validation. Production-like, API docs enabled.  |
+| `prod`  | Production. Quiet logging, API docs disabled.                     |
+| `test`  | Automated tests. Currently a stub; no context-loading test exists yet. |
+
+### 12.3 Activation Rule
+
+The active profile is **never** hardcoded in source.
+
+Forbidden in any committed file:
+
+```yaml
+spring:
+  profiles:
+    active: dev
 ```
 
-Every unknown file must be inspected before being staged.
+Hardcoding the active profile causes permanent branch divergence: the value
+would conflict on every `develop → staging → main` promotion. The profile must
+instead be selected externally through the `SPRING_PROFILES_ACTIVE` environment
+variable.
 
-Avoid broad staging commands:
+### 12.4 Environment Mapping
 
-```bash
-git add .
-git add -A
+| Branch    | Environment | `SPRING_PROFILES_ACTIVE` | Where it is set                                         | Secret source                                |
+|-----------|-------------|--------------------------|---------------------------------------------------------|----------------------------------------------|
+| `develop` | Development | `dev`                    | `compose.yaml` locally; `values-dev.yaml` when deployed | `.env` locally; secret manager in deployment |
+| `staging` | Staging     | `stage`                  | `values-stage.yaml`                                     | secret manager                               |
+| `main`    | Production  | `prod`                   | `values-prod.yaml`                                      | secret manager                               |
+
+The same immutable container image is promoted through all environments
+unchanged. Only the injected environment variables differ between deployments.
+Do not build separate images per environment.
+
+### 12.5 Running Locally with a Profile
+
+Local development defaults to `dev` (see `.env.example`). To run under a
+specific profile:
+
+```fish
+SPRING_PROFILES_ACTIVE=stage ./mvnw spring-boot:run
 ```
 
-Prefer explicit paths:
+Confirm activation in the startup log:
 
-```bash
-git add src/main/java/dev/amir/synapse/messaging
-git add src/test/java/dev/amir/synapse/messaging
+```text
+The following 1 profile is active: "stage"
 ```
 
-Broad staging is allowed only when the developer has already reviewed the complete working tree and understands every file being added, modified, or deleted.
+### 12.6 Rules
 
----
+* `application.yml` must not contain a hardcoded `spring.profiles.active`.
+* Profile files must contain only overrides, never a duplicated full config.
+* All profile files must exist identically on every branch.
+* Secrets must come from environment variables or an approved secret manager,
+  never from a committed profile file (see Section 11).
+* Adding or changing a configuration property or environment variable requires
+  updating this section and `.env.example` (see Section 16).
 
 ## 13. Restoring Files from an Older Repository
 
