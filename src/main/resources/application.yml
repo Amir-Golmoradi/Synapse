@@ -1,3 +1,5 @@
+# Active profile is selected externally via SPRING_PROFILES_ACTIVE.
+# Do NOT set spring.profiles.active here — it must stay identical on every branch.
 server:
   port: ${SYNAPSE_SERVICE_HOST_PORT}
 spring:

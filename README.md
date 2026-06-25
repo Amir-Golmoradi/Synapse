@@ -18,6 +18,7 @@
 [Overview](#overview) •
 [Architecture](#architecture) •
 [Getting Started](#getting-started) •
+[Documentation](#documentation) •
 [API Documentation](#api-documentation) •
 [Roadmap](#roadmap)
 
@@ -142,6 +143,7 @@ flowchart LR
     Outbound --> Ports
 ```
 
+
 ### Dependency Rules
 
 - Domain code contains no Spring, JPA, HTTP, or database dependencies.
@@ -155,12 +157,12 @@ flowchart LR
 
 ### Cross-Context Boundaries
 
-| Consumer | Provider | Purpose | State |
-|---|---|---|---|
+| Consumer    | Provider   | Purpose                                                   | State       |
+|-------------|------------|-----------------------------------------------------------|-------------|
 | `messaging` | `identity` | Validate room members and resolve public user information | Implemented |
-| `call` | `identity` | Validate call participants | Planned |
-| `messaging` | `presence` | Read participant availability | Planned |
-| `call` | `presence` | Coordinate call availability and session state | Planned |
+| `call`      | `identity` | Validate call participants                                | Planned     |
+| `messaging` | `presence` | Read participant availability                             | Planned     |
+| `call`      | `presence` | Coordinate call availability and session state            | Planned     |
 
 The implemented Identity-to-Messaging integration uses a read-only lookup contract rather than sharing Identity's persistence model.
 
@@ -196,21 +198,21 @@ synapse/
 
 ## Technology Stack
 
-| Area | Technology |
-|---|---|
-| Language | Java 21 |
-| Framework | Spring Boot 4.0.6 |
-| Architecture | Modular Monolith, Hexagonal Architecture, DDD |
-| Application model | Commands, queries, handlers, and explicit ports |
-| Persistence | PostgreSQL |
-| Ephemeral state | Redis |
-| Authentication | Google ID tokens and Synapse-issued JWTs |
-| Real-time messaging | WebSocket |
-| Voice and video | WebRTC signaling |
-| Build | Maven Wrapper |
-| Infrastructure | Docker and Docker Compose |
-| Code quality | Spotless, Checkstyle, PMD, SpotBugs |
-| CI/CD | GitHub Actions |
+| Area                | Technology                                      |
+|---------------------|-------------------------------------------------|
+| Language            | Java 21                                         |
+| Framework           | Spring Boot 4.0.6                               |
+| Architecture        | Modular Monolith, Hexagonal Architecture, DDD   |
+| Application model   | Commands, queries, handlers, and explicit ports |
+| Persistence         | PostgreSQL                                      |
+| Ephemeral state     | Redis                                           |
+| Authentication      | Google ID tokens and Synapse-issued JWTs        |
+| Real-time messaging | WebSocket                                       |
+| Voice and video     | WebRTC signaling                                |
+| Build               | Maven Wrapper                                   |
+| Infrastructure      | Docker and Docker Compose                       |
+| Code quality        | Spotless, Checkstyle, PMD, SpotBugs             |
+| CI/CD               | GitHub Actions                                  |
 
 ---
 
@@ -277,6 +279,9 @@ Create a `.env` file in the repository root and provide the local values expecte
 # Application
 SYNAPSE_SERVICE_HOST_PORT=8020
 SYNAPSE_SERVICE_CONTAINER_PORT=8080
+
+# Active Spring profile (dev | stage | prod | test)
+SPRING_PROFILES_ACTIVE=dev
 
 # PostgreSQL
 POSTGRES_IMAGE=postgres:16-alpine
@@ -426,15 +431,15 @@ Do not copy the `access_token`.
 <details>
 <summary><strong>Authentication troubleshooting</strong></summary>
 
-| Problem | Likely Cause | Resolution |
-|---|---|---|
-| `400 Bad Request` | Incorrect request property | Send `idToken` |
-| `401 Unauthorized` | Google token is invalid or expired | Generate a fresh ID token |
-| `401 Unauthorized` | A Google access token was sent | Send the Google ID token |
-| `401 Unauthorized` | Token audience does not match `GOOGLE_CLIENT_ID` | Verify the OAuth client configuration |
-| `404 Not Found` | Incorrect endpoint | Use `/api/v1/auth/google` |
-| Connection refused | Backend is not running | Start the Identity module |
-| Swagger loads but authentication fails | Infrastructure or environment values are incomplete | Check Docker services and `.env` |
+| Problem                                | Likely Cause                                        | Resolution                            |
+|----------------------------------------|-----------------------------------------------------|---------------------------------------|
+| `400 Bad Request`                      | Incorrect request property                          | Send `idToken`                        |
+| `401 Unauthorized`                     | Google token is invalid or expired                  | Generate a fresh ID token             |
+| `401 Unauthorized`                     | A Google access token was sent                      | Send the Google ID token              |
+| `401 Unauthorized`                     | Token audience does not match `GOOGLE_CLIENT_ID`    | Verify the OAuth client configuration |
+| `404 Not Found`                        | Incorrect endpoint                                  | Use `/api/v1/auth/google`             |
+| Connection refused                     | Backend is not running                              | Start the Identity module             |
+| Swagger loads but authentication fails | Infrastructure or environment values are incomplete | Check Docker services and `.env`      |
 
 `/api/v1/auth/google` is not a Google redirect URI. OAuth redirects belong to the client application or the testing tool that performs the Google authorization flow.
 
@@ -446,10 +451,10 @@ Do not copy the `access_token`.
 
 Synapse exposes an OpenAPI specification and interactive Swagger UI.
 
-| Interface | URL | Purpose |
-|---|---|---|
-| Swagger UI | `http://localhost:8020/swagger-ui/index.html` | Explore and execute API requests |
-| OpenAPI JSON | `http://localhost:8020/v3/api-docs` | Consume the raw OpenAPI specification |
+| Interface    | URL                                           | Purpose                               |
+|--------------|-----------------------------------------------|---------------------------------------|
+| Swagger UI   | `http://localhost:8020/swagger-ui/index.html` | Explore and execute API requests      |
+| OpenAPI JSON | `http://localhost:8020/v3/api-docs`           | Consume the raw OpenAPI specification |
 
 The OpenAPI document is the source of truth for current request and response schemas.
 
@@ -459,12 +464,12 @@ The OpenAPI document is the source of truth for current request and response sch
 
 The repository is configured to run formatting, static analysis, tests, and a full Maven verification build.
 
-| Check | Tool | Execution |
-|---|---|---|
-| Formatting | Spotless with Google Java Format | Local hook and CI |
-| Style rules | Checkstyle | CI and manual verification |
-| Static analysis | PMD and SpotBugs | CI and manual verification |
-| Tests and packaging | Maven | CI and local build |
+| Check               | Tool                             | Execution                  |
+|---------------------|----------------------------------|----------------------------|
+| Formatting          | Spotless with Google Java Format | Local hook and CI          |
+| Style rules         | Checkstyle                       | CI and manual verification |
+| Static analysis     | PMD and SpotBugs                 | CI and manual verification |
+| Tests and packaging | Maven                            | CI and local build         |
 
 ### Run Checks Locally
 
@@ -544,9 +549,19 @@ The Maven initialization step links the repository's pre-commit hook into `.git/
 
 ---
 
+## Documentation
+
+In-depth guides live in the [`docs/`](docs/) directory:
+
+- **[Configuration & Profiles](docs/configuration.md)** — how configuration and Spring profiles work, and how to run each environment.
+- **[Architecture Decision Records](docs/adr/)** — the reasoning behind key technical decisions.
+- **[Contributing Guide](CONTRIBUTING.md)** — branching, commits, pull requests, and the rules of the project.
+
+---
+
 ## Contributing
 
-Issues, architectural feedback, and focused pull requests are welcome.
+Issues, architectural feedback, and focused pull requests are welcome. Please read the **[Contributing Guide](CONTRIBUTING.md)** before opening a pull request.
 
 Before opening a pull request:
 
