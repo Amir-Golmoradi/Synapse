@@ -21,7 +21,7 @@ public class GoogleOAuthAdapter implements GoogleOAuthPort {
 
   public GoogleOAuthAdapter(
       @Qualifier("googleRestClient") RestClient restClient,
-      @Value("${spring.security.oauth2.client.registration.token-info-url}") String tokenInfoUrl,
+      @Value("${synapse.google-token-url}") String tokenInfoUrl,
       @Value("${spring.security.oauth2.client.registration.google.client-id}")
           String googleClientId) {
     this.tokenInfoUrl = tokenInfoUrl;
