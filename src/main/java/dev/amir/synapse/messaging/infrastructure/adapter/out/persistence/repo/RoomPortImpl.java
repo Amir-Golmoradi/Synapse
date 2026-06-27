@@ -29,7 +29,7 @@ public class RoomPortImpl implements LoadRoomPort, SaveRoomPort {
   @Override
   public List<Room> findActiveRoomsForUser(UUID userId) {
     return roomJpaRepository
-        .findByStatusAndMemberIdsContaining(RoomStatus.ACTIVE, userId, Pageable.unpaged())
+        .findRoomsByStatusAndMember(RoomStatus.ACTIVE, userId, Pageable.unpaged())
         .stream()
         .map(mapper::toDomain)
         .toList();

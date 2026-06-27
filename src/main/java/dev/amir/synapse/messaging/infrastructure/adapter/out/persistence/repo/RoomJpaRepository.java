@@ -14,15 +14,23 @@ import org.springframework.stereotype.Repository;
 public interface RoomJpaRepository extends JpaRepository<RoomJpaEntity, UUID> {
   @Query(
       """
-    SELECT COUNT(r) > 0
-    FROM RoomJpaEntity r
-    JOIN r.memberIds memberId
-    WHERE r.id = :roomId
-    AND memberId = :userId
-    AND r.status = dev.amir.synapse.messaging.domain.enums.RoomStatus.ACTIVE
-""")
+                       SELECT COUNT(r) > 0
+                       FROM RoomJpaEntity r
+                       JOIN r.members m
+                       WHERE r.id = :roomId
+                       AND m.userId = :userId
+                       AND r.status = dev.amir.synapse.messaging.domain.enums.RoomStatus.ACTIVE
+                   """)
   boolean existsActiveRoomMembership(@Param("roomId") UUID roomId, @Param("userId") UUID userId);
 
-  List<RoomJpaEntity> findByStatusAndMemberIdsContaining(
-      RoomStatus status, UUID userId, Pageable pageable);
+  @Query(
+      """
+                       SELECT r
+                       FROM RoomJpaEntity r
+                       JOIN r.members m
+                       WHERE r.status = :status
+                         AND m.userId = :userId
+                   """)
+  List<RoomJpaEntity> findRoomsByStatusAndMember(
+      @Param("status") RoomStatus status, @Param("userId") UUID userId, Pageable pageable);
 }

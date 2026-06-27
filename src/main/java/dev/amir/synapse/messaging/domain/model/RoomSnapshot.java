@@ -2,8 +2,8 @@ package dev.amir.synapse.messaging.domain.model;
 
 import dev.amir.synapse.messaging.domain.enums.RoomStatus;
 import dev.amir.synapse.messaging.domain.enums.RoomType;
-import dev.amir.synapse.messaging.domain.value_object.MemberId;
 import dev.amir.synapse.messaging.domain.value_object.RoomId;
+import dev.amir.synapse.messaging.domain.value_object.RoomMember;
 import java.time.Instant;
 import java.util.Set;
 
@@ -15,4 +15,4 @@ public record RoomSnapshot(
     RoomStatus status,
     Instant createdAt,
     Instant lastMessagesAt,
-    Set<MemberId> initialMembers) {}
+    Set<RoomMember> initialMembers) {}
