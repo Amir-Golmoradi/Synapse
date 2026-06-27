@@ -1,23 +1,27 @@
 package dev.amir.synapse.messaging.domain.model;
 
+import dev.amir.synapse.messaging.domain.enums.RoomRole;
 import dev.amir.synapse.messaging.domain.enums.RoomStatus;
 import dev.amir.synapse.messaging.domain.enums.RoomType;
 import dev.amir.synapse.messaging.domain.event.MemberCreatedEvent;
 import dev.amir.synapse.messaging.domain.event.MemberRemovedEvent;
+import dev.amir.synapse.messaging.domain.event.MemberRoleChangedEvent;
 import dev.amir.synapse.messaging.domain.event.RoomArchivedEvent;
 import dev.amir.synapse.messaging.domain.event.RoomCreatedEvent;
 import dev.amir.synapse.messaging.domain.exception.RoomValidationException;
 import dev.amir.synapse.messaging.domain.policy.RoomGuards;
 import dev.amir.synapse.messaging.domain.value_object.MemberId;
 import dev.amir.synapse.messaging.domain.value_object.RoomId;
+import dev.amir.synapse.messaging.domain.value_object.RoomMember;
 import dev.amir.synapse.shared.domain.AggregateRoot;
 import dev.amir.synapse.shared.domain.DomainEvent;
 import java.time.Instant;
-import java.util.Collections;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Room aggregate root.
@@ -46,11 +50,15 @@ public final class Room extends AggregateRoot<RoomId, DomainEvent> {
   private final RoomType roomType;
   private final Instant createdAt;
 
+  public Map<MemberId, RoomMember> getMembers() {
+    return members;
+  }
+
   /**
    * Members is the authoritative membership set for this room. It is mutable only through {@link
    * #addMember} and {@link #removeMember}, never through direct field access.
    */
-  private final Set<MemberId> members;
+  private final Map<MemberId, RoomMember> members;
 
   private String name;
   private String avatarUrl;
@@ -63,7 +71,10 @@ public final class Room extends AggregateRoot<RoomId, DomainEvent> {
     this.roomType = Objects.requireNonNull(snapshot.roomType(), "Room type cannot be null");
     this.name = snapshot.name();
     this.avatarUrl = snapshot.avatarUrl();
-    this.members = new HashSet<>(snapshot.initialMembers());
+    this.members = new HashMap<>();
+    for (RoomMember m : snapshot.initialMembers()) {
+      this.members.put(m.getMemberId(), m);
+    }
     this.createdAt =
         Objects.requireNonNull(snapshot.createdAt(), "Created timestamp cannot be null");
     this.lastMessagesAt = Objects.requireNonNullElse(snapshot.lastMessagesAt(), this.createdAt);
@@ -91,8 +102,9 @@ public final class Room extends AggregateRoot<RoomId, DomainEvent> {
       throw new RoomValidationException(
           "A direct message cannot be created between the same user.");
     }
-    var members = Set.of(creatorId, recipientId);
-    return create(RoomType.DIRECT, null, null, members);
+    // Rule: a 1:1 has no owner — both participants are equal MEMBERs.
+    var roles = Map.of(creatorId, RoomRole.MEMBER, recipientId, RoomRole.MEMBER);
+    return create(RoomType.DIRECT, null, null, roles);
   }
 
   /**
@@ -112,8 +124,8 @@ public final class Room extends AggregateRoot<RoomId, DomainEvent> {
     validateName(name);
     validateAvatarUrl(avatarUrl);
 
-    var initialMembers = Set.of(creatorId);
-    return create(RoomType.GROUP, name, avatarUrl, initialMembers);
+    // Rule 3: the creator becomes OWNER.
+    return create(RoomType.GROUP, name, avatarUrl, Map.of(creatorId, RoomRole.OWNER));
   }
 
   /**
@@ -126,7 +138,7 @@ public final class Room extends AggregateRoot<RoomId, DomainEvent> {
     validateName(name);
     validateAvatarUrl(avatarUrl);
 
-    return create(RoomType.CHANNEL, name, avatarUrl, Set.of(creatorId));
+    return create(RoomType.CHANNEL, name, avatarUrl, Map.of(creatorId, RoomRole.OWNER));
   }
 
   /**
@@ -136,7 +148,10 @@ public final class Room extends AggregateRoot<RoomId, DomainEvent> {
    */
   public static Room reconstitute(RoomSnapshot snapshot) {
     RoomGuards.validateCreation(
-        snapshot.roomType(), snapshot.name(), snapshot.avatarUrl(), snapshot.initialMembers());
+        snapshot.roomType(),
+        snapshot.name(),
+        snapshot.avatarUrl(),
+        memberIds(snapshot.initialMembers()));
     return new Room(snapshot);
   }
 
@@ -144,30 +159,23 @@ public final class Room extends AggregateRoot<RoomId, DomainEvent> {
 
   // ── Guard methods ───────────────────────────────────────────────────────
   private static Room create(
-      RoomType roomType, String name, String avatarUrl, Set<MemberId> initialMembers) {
+      RoomType roomType, String name, String avatarUrl, Map<MemberId, RoomRole> roleAssignments) {
     var now = Instant.now();
+
+    Set<RoomMember> initialMembers =
+        roleAssignments.entrySet().stream()
+            .map(e -> RoomMember.create(e.getKey(), e.getValue(), now))
+            .collect(Collectors.toSet());
+
     var snapshot =
-        createSnapshot(
-            RoomId.generate(),
-            roomType,
-            name,
-            avatarUrl,
-            RoomStatus.ACTIVE,
-            now,
-            now,
-            initialMembers);
+        createSnapshot(RoomId.generate(), roomType, name, avatarUrl, now, now, initialMembers);
 
     RoomGuards.validateCreation(
-        snapshot.roomType(), snapshot.name(), snapshot.avatarUrl(), snapshot.initialMembers());
+        snapshot.roomType(), snapshot.name(), snapshot.avatarUrl(), memberIds(initialMembers));
     var room = new Room(snapshot);
 
     var event =
-        new RoomCreatedEvent(
-            room.getId(),
-            room.getRoomType(),
-            room.getName(),
-            room.getAvatarUrl(),
-            room.getCreatedAt());
+        new RoomCreatedEvent(room.getId(), room.getRoomType(), room.getName(), room.getAvatarUrl());
     room.registerEvent(event);
 
     return room;
@@ -191,6 +199,10 @@ public final class Room extends AggregateRoot<RoomId, DomainEvent> {
 
   // ── Mutations ───────────────────────────────────────────────────────────
 
+  private static Set<MemberId> memberIds(Set<RoomMember> members) {
+    return members.stream().map(RoomMember::getMemberId).collect(Collectors.toSet());
+  }
+
   private static void validateAvatarUrl(String avatarUrl) {
     if (avatarUrl != null && avatarUrl.strip().length() > AVATAR_URL_MAX_LENGTH) {
       throw new RoomValidationException(
@@ -211,19 +223,18 @@ public final class Room extends AggregateRoot<RoomId, DomainEvent> {
       RoomType roomType,
       String name,
       String avatarUrl,
-      RoomStatus status,
       Instant createdAt,
       Instant lastMessagesAt,
-      Set<MemberId> initialMembers) {
+      Set<RoomMember> initialMembers) {
     return new RoomSnapshot(
         id,
         roomType,
         name,
         avatarUrl,
-        status,
+        RoomStatus.ACTIVE,
         createdAt,
         lastMessagesAt,
-        Set.copyOf(initialMembers));
+        initialMembers);
   }
 
   /**
@@ -242,16 +253,16 @@ public final class Room extends AggregateRoot<RoomId, DomainEvent> {
     requireActive();
     Objects.requireNonNull(memberId, "Member ID cannot be null");
 
-    if (members.contains(memberId)) {
+    if (members.containsKey(memberId)) {
       throw new RoomValidationException(
           "User '%s' is already a member of this room.".formatted(memberId.getValue()));
     }
 
     RoomGuards.validateCanAddMember(getRoomType(), memberCount());
 
-    members.add(memberId);
-    var event = new MemberCreatedEvent(getId(), memberId, Instant.now());
-    registerEvent(event);
+    var newMember = RoomMember.create(memberId, RoomRole.MEMBER, Instant.now());
+    members.put(memberId, newMember);
+    registerEvent(new MemberCreatedEvent(getId(), memberId, newMember.getJoinedAt()));
   }
 
   // ── Domain queries ──────────────────────────────────────────────────────
@@ -277,7 +288,7 @@ public final class Room extends AggregateRoot<RoomId, DomainEvent> {
       throw new RoomValidationException(
           "Direct message rooms have sealed membership. Members cannot be removed.");
     }
-    if (!members.contains(userId)) {
+    if (!members.containsKey(userId)) {
       throw new RoomValidationException(
           "User '%s' is not a member of this room.".formatted(userId.getValue()));
     }
@@ -288,8 +299,66 @@ public final class Room extends AggregateRoot<RoomId, DomainEvent> {
     }
 
     members.remove(userId);
-    var event = new MemberRemovedEvent(getId(), userId, Instant.now());
+    var event = new MemberRemovedEvent(getId(), userId);
     registerEvent(event);
+  }
+
+  public void changeMemberRole(MemberId actorId, MemberId targetId, RoomRole newRole) {
+    requireActive();
+    Objects.requireNonNull(actorId, "Actor ID cannot be null");
+    Objects.requireNonNull(targetId, "Target ID cannot be null");
+    Objects.requireNonNull(newRole, "New role cannot be null");
+
+    if (roomType == RoomType.DIRECT) {
+      throw new RoomValidationException("Direct message rooms do not have member roles.");
+    }
+
+    var actor = members.get(actorId);
+    var target = members.get(targetId);
+    if (actor == null) {
+      throw new RoomValidationException("Actor is not a member of this room.");
+    }
+    if (target == null) {
+      throw new RoomValidationException("Target user is not a member of this room.");
+    }
+
+    // Rules 4–6 all begin with "Owner can ..." — only the Owner may change roles.
+    if (!actor.isOwner()) {
+      throw new RoomValidationException("Only the room owner can change member roles.");
+    }
+    if (actorId.equals(targetId)) {
+      throw new RoomValidationException("The owner cannot change their own role.");
+    }
+
+    var currentRole = target.getRole();
+    if (currentRole == newRole) {
+      throw new RoomValidationException("Member already has role '%s'.".formatted(newRole));
+    }
+
+    switch (newRole) {
+      case ADMIN -> { // Rule 4: Member -> Admin
+        if (currentRole != RoomRole.MEMBER) {
+          throw new RoomValidationException("Only a MEMBER can be promoted to ADMIN.");
+        }
+        members.put(targetId, target.withRole(RoomRole.ADMIN));
+      }
+      case MEMBER -> { // Rule 6: Admin -> Member
+        if (currentRole != RoomRole.ADMIN) {
+          throw new RoomValidationException("Only an ADMIN can be demoted to MEMBER.");
+        }
+        members.put(targetId, target.withRole(RoomRole.MEMBER));
+      }
+      case OWNER -> { // Rule 5: Admin -> Owner, and the old Owner becomes Admin
+        if (currentRole != RoomRole.ADMIN) {
+          throw new RoomValidationException("Only an ADMIN can be promoted to OWNER.");
+        }
+        members.put(targetId, target.withRole(RoomRole.OWNER));
+        members.put(
+            actorId, actor.withRole(RoomRole.ADMIN)); // preserves the single-owner invariant
+      }
+    }
+
+    registerEvent(new MemberRoleChangedEvent(getId(), targetId, currentRole, newRole));
   }
 
   /**
@@ -311,7 +380,7 @@ public final class Room extends AggregateRoot<RoomId, DomainEvent> {
   }
 
   /**
-   * Updates the avatar of a group or channel room.
+   * Changes the avatar of a group or channel room.
    *
    * <p>Invariants enforced:
    *
@@ -322,7 +391,7 @@ public final class Room extends AggregateRoot<RoomId, DomainEvent> {
    *   <li>URL, if provided, must not exceed {@value #AVATAR_URL_MAX_LENGTH} characters.
    * </ul>
    */
-  public void updateAvatar(String newAvatarUrl) {
+  public void changeAvatar(String newAvatarUrl) {
     requireActive();
     requireNamed("Direct message rooms cannot have an explicit avatar.");
     validateAvatarUrl(newAvatarUrl);
@@ -350,12 +419,12 @@ public final class Room extends AggregateRoot<RoomId, DomainEvent> {
   public void archive() {
     requireActive();
     this.status = RoomStatus.ARCHIVED;
-    registerEvent(new RoomArchivedEvent(getId(), Instant.now()));
+    registerEvent(new RoomArchivedEvent(getId()));
   }
 
   public boolean hasMember(MemberId userId) {
     Objects.requireNonNull(userId, "User ID cannot be null");
-    return members.contains(userId);
+    return members.containsKey(userId);
   }
 
   public int memberCount() {
@@ -401,9 +470,6 @@ public final class Room extends AggregateRoot<RoomId, DomainEvent> {
    * Returns an unmodifiable view of the current members. Callers must use {@link #addMember} and
    * {@link #removeMember} for mutations.
    */
-  public Set<MemberId> getMembers() {
-    return Collections.unmodifiableSet(members);
-  }
 
   /**
    * Identity-based equality. Two Room instances are the same room if and only if they share the

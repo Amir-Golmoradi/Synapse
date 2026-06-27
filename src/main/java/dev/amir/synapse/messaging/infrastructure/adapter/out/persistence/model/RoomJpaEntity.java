@@ -34,8 +34,9 @@ import java.util.UUID;
  *   <li>{@code TIMESTAMPTZ} for all timestamps — PostgreSQL timezone-aware type.
  *   <li>{@code room_type} and {@code created_at} are {@code updatable = false} — immutable after
  *       creation.
- *   <li>Members stored via {@code @ElementCollection} in a separate {@code room_members} table.
- *       {@code LAZY} fetch — loading 2000 member UUIDs on every room read is wasteful.
+ *   <li>Members stored via {@code @ElementCollection} of {@link RoomMemberEmbeddable} in a separate
+ *       {@code room_members} table. {@code LAZY} fetch — loading members on every room read is
+ *       wasteful.
  * </ul>
  */
 @Entity
@@ -79,30 +80,18 @@ public class RoomJpaEntity {
   private Instant lastMessagesAt;
 
   /**
-   * Member UUIDs stored in a dedicated join table.
+   * Members stored in a dedicated {@code room_members} table, one row per member, each carrying the
+   * user id, role, and join timestamp.
    *
-   * <p>Schema produced:
-   *
-   * <pre>
-   * CREATE TABLE room_members (
-   *   room_id UUID NOT NULL REFERENCES rooms(id),
-   *   user_id UUID NOT NULL
-   * );
-   * </pre>
-   *
-   * <p>LAZY fetch is intentional — member list is only needed for membership checks and mutations,
-   * not for every room query (e.g., inbox listing).
+   * <p>LAZY fetch is intentional — the member list is only needed for membership checks and
+   * mutations, not for every room query (e.g., inbox listing).
    */
   @ElementCollection(fetch = FetchType.LAZY)
   @CollectionTable(
       name = "room_members",
       joinColumns = @JoinColumn(name = "room_id", referencedColumnName = "id"),
-      indexes = {
-        @Index(name = "idx_room_members_room_id", columnList = "room_id"),
-        @Index(name = "idx_room_members_user_id", columnList = "user_id")
-      })
-  @Column(name = "user_id", nullable = false, columnDefinition = "uuid")
-  private Set<UUID> memberIds = new HashSet<>();
+      indexes = {@Index(name = "idx_room_members_user_id", columnList = "user_id")})
+  private Set<RoomMemberEmbeddable> members = new HashSet<>();
 
   /**
    * Optimistic locking version.
@@ -121,7 +110,11 @@ public class RoomJpaEntity {
   protected RoomJpaEntity() {}
 
   private RoomJpaEntity(
-      UUID id, RoomType roomType, String name, String avatarUrl, Set<UUID> memberIds) {
+      UUID id,
+      RoomType roomType,
+      String name,
+      String avatarUrl,
+      Set<RoomMemberEmbeddable> members) {
     this.id = id;
     this.roomType = roomType;
     this.name = name;
@@ -129,12 +122,16 @@ public class RoomJpaEntity {
     this.status = RoomStatus.ACTIVE;
     this.createdAt = Instant.now();
     this.lastMessagesAt = this.createdAt;
-    this.memberIds = new HashSet<>(memberIds);
+    this.members = new HashSet<>(members);
   }
 
   public static RoomJpaEntity create(
-      UUID id, RoomType roomType, String name, String avatarUrl, Set<UUID> memberIds) {
-    return new RoomJpaEntity(id, roomType, name, avatarUrl, memberIds);
+      UUID id,
+      RoomType roomType,
+      String name,
+      String avatarUrl,
+      Set<RoomMemberEmbeddable> members) {
+    return new RoomJpaEntity(id, roomType, name, avatarUrl, members);
   }
 
   // ── Getters ──────────────────────────────────────────────────────────────
@@ -143,35 +140,35 @@ public class RoomJpaEntity {
     return id;
   }
 
-  public RoomType getRoomType() {
-    return roomType;
-  }
-
   public String getName() {
     return name;
   }
 
-  public String getAvatarUrl() {
-    return avatarUrl;
+  public Long getVersion() {
+    return version;
   }
 
   public RoomStatus getStatus() {
     return status;
   }
 
+  public RoomType getRoomType() {
+    return roomType;
+  }
+
+  public String getAvatarUrl() {
+    return avatarUrl;
+  }
+
   public Instant getCreatedAt() {
     return createdAt;
   }
 
+  public Set<RoomMemberEmbeddable> getMembers() {
+    return members;
+  }
+
   public Instant getLastMessagesAt() {
     return lastMessagesAt;
-  }
-
-  public Set<UUID> getMemberIds() {
-    return memberIds;
-  }
-
-  public Long getVersion() {
-    return version;
   }
 }
