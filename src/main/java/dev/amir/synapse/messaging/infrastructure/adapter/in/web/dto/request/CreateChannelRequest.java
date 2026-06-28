@@ -11,5 +11,5 @@ import org.jspecify.annotations.Nullable;
 public record CreateChannelRequest(
     @NotBlank @Size(max = 100) String name,
     @URL @Size(max = 2048) @Nullable String avatarUrl,
-    @Nullable @Size(max = 500, message = "Cannot add more than 500 initial members")
+    @NotNull @Size(max = 500, message = "Cannot add more than 500 initial members")
         Set<@NotNull UUID> initialMemberIds) {}

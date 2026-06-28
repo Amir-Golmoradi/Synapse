@@ -1,5 +1,7 @@
 package dev.amir.synapse.messaging.infrastructure.adapter.in.web.rest;
 
+import static org.springframework.http.MediaType.APPLICATION_JSON_VALUE;
+
 import dev.amir.synapse.messaging.domain.port.in.create_channel_room.CreateChannelCommand;
 import dev.amir.synapse.messaging.domain.port.in.create_channel_room.CreateChannelResponse;
 import dev.amir.synapse.messaging.domain.port.in.create_channel_room.CreateChannelUseCase;
@@ -13,7 +15,6 @@ import dev.amir.synapse.messaging.infrastructure.adapter.in.web.dto.request.Crea
 import dev.amir.synapse.messaging.infrastructure.adapter.in.web.dto.request.CreateDirectRequest;
 import dev.amir.synapse.messaging.infrastructure.adapter.in.web.dto.request.CreateGroupRequest;
 import jakarta.validation.Valid;
-import java.util.Set;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -24,7 +25,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-@RequestMapping("api/v1/room")
+@RequestMapping(value = "api/v1/room", produces = APPLICATION_JSON_VALUE)
 public class RoomCommandApi {
   private final CreateGroupUseCase groupUseCase;
   private final CreateChannelUseCase channelUseCase;
@@ -51,10 +52,7 @@ public class RoomCommandApi {
       @Valid @RequestBody CreateChannelRequest request, @AuthenticationPrincipal UUID creatorId) {
     var command =
         CreateChannelCommand.from(
-            creatorId,
-            request.name(),
-            request.avatarUrl(),
-            request.initialMemberIds() != null ? request.initialMemberIds() : Set.of());
+            creatorId, request.name(), request.avatarUrl(), request.initialMemberIds());
 
     return ResponseEntity.status(HttpStatus.CREATED).body(channelUseCase.handle(command));
   }
