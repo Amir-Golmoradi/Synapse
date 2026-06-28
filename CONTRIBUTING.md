@@ -732,12 +732,12 @@ from the base. Settings not named in a profile file are inherited from
 
 ### 12.2 Profile Purpose
 
-| Profile | Purpose                                                            |
-|---------|-------------------------------------------------------------------|
+| Profile | Purpose                                                                         |
+|---------|---------------------------------------------------------------------------------|
 | `dev`   | Local and development environment. Verbose logging, SQL echo, API docs enabled. |
-| `stage` | Release-candidate validation. Production-like, API docs enabled.  |
-| `prod`  | Production. Quiet logging, API docs disabled.                     |
-| `test`  | Automated tests. Currently a stub; no context-loading test exists yet. |
+| `stage` | Release-candidate validation. Production-like, API docs enabled.                |
+| `prod`  | Production. Quiet logging, API docs disabled.                                   |
+| `test`  | Automated tests. Currently a stub; no context-loading test exists yet.          |
 
 ### 12.3 Activation Rule
 

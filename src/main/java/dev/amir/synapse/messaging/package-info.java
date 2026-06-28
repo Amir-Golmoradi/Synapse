@@ -2,7 +2,8 @@
     allowedDependencies = {
       "identity :: identity-user-lookup",
       "shared :: shared-domain",
-      "identity"
+      "identity",
+      "shared"
     })
 package dev.amir.synapse.messaging;
 
