@@ -53,6 +53,11 @@ class CreateChannelHandler implements CreateChannelUseCase {
     extraMembers.stream().map(MemberId::of).forEach(room::addMember);
     roomPort.save(room);
 
-    return CreateChannelResponse.from(room);
+    return new CreateChannelResponse(
+        room.getId().getValue(),
+        room.getName(),
+        room.getAvatarUrl(),
+        room.memberCount(),
+        room.getCreatedAt());
   }
 }

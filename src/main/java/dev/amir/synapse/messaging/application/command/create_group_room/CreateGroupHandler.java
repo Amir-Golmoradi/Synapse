@@ -49,6 +49,11 @@ class CreateGroupHandler implements CreateGroupUseCase {
     extraMembers.stream().map(MemberId::of).forEach(room::addMember);
     roomPort.save(room);
 
-    return CreateGroupResponse.from(room);
+    return new CreateGroupResponse(
+        room.getId().getValue(),
+        room.getName(),
+        room.getAvatarUrl(),
+        room.memberCount(),
+        room.getCreatedAt());
   }
 }
