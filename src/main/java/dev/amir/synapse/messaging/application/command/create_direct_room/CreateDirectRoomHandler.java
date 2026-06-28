@@ -36,7 +36,11 @@ class CreateDirectRoomHandler implements CreateDirectRoomUseCase {
 
     var savedRoom = saveRoomPort.save(room);
 
-    return CreateDirectRoomResponse.from(savedRoom, command.creatorId(), command.recipientId());
+    return new CreateDirectRoomResponse(
+        savedRoom.getId().getValue(),
+        command.creatorId(),
+        command.recipientId(),
+        savedRoom.getCreatedAt());
   }
 
   private void validateDirectMessage(CreateDirectRoomCommand command) {
