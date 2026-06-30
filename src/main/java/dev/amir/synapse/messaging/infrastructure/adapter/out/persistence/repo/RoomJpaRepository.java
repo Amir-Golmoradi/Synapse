@@ -1,9 +1,11 @@
 package dev.amir.synapse.messaging.infrastructure.adapter.out.persistence.repo;
 
 import dev.amir.synapse.messaging.domain.enums.RoomStatus;
+import dev.amir.synapse.messaging.domain.enums.RoomType;
+import dev.amir.synapse.messaging.domain.port.out.RoomSummaryProjection;
 import dev.amir.synapse.messaging.infrastructure.adapter.out.persistence.model.RoomJpaEntity;
-import java.util.List;
 import java.util.UUID;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -24,13 +26,37 @@ public interface RoomJpaRepository extends JpaRepository<RoomJpaEntity, UUID> {
   boolean existsActiveRoomMembership(@Param("roomId") UUID roomId, @Param("userId") UUID userId);
 
   @Query(
-      """
-                       SELECT r
-                       FROM RoomJpaEntity r
-                       JOIN r.members m
-                       WHERE r.status = :status
-                         AND m.userId = :userId
-                   """)
-  List<RoomJpaEntity> findRoomsByStatusAndMember(
-      @Param("status") RoomStatus status, @Param("userId") UUID userId, Pageable pageable);
+      value =
+          """
+                         SELECT new dev.amir.synapse.messaging.domain.port.out.RoomSummaryProjection(
+                           r.id,
+                           r.roomType,
+                           r.status,
+                           r.name,
+                           r.avatarUrl,
+                           SIZE(r.members),
+                           r.createdAt,
+                           r.lastMessagesAt
+                         )
+                         FROM RoomJpaEntity r
+                         JOIN r.members m
+                         WHERE m.userId = :userId
+                           AND r.status = :status
+                           AND (:type IS NULL OR r.roomType = :type)
+                         ORDER BY r.lastMessagesAt DESC
+                     """,
+      countQuery =
+          """
+                         SELECT COUNT(r)
+                         FROM RoomJpaEntity r
+                         JOIN r.members m
+                         WHERE m.userId = :userId
+                           AND r.status = :status
+                           AND (:type IS NULL OR r.roomType = :type)
+                     """)
+  Page<RoomSummaryProjection> findRoomSummariesByMember(
+      @Param("userId") UUID userId,
+      @Param("type") RoomType type,
+      @Param("status") RoomStatus status,
+      Pageable pageable);
 }

@@ -4,8 +4,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
 
 import dev.amir.synapse.messaging.domain.enums.RoomStatus;
+import dev.amir.synapse.messaging.domain.enums.RoomType;
 import dev.amir.synapse.messaging.domain.model.Room;
+import dev.amir.synapse.messaging.domain.port.out.ListRoomSummariesPort;
 import dev.amir.synapse.messaging.domain.port.out.LoadRoomPort;
+import dev.amir.synapse.messaging.domain.port.out.RoomSummaryProjection;
+import dev.amir.synapse.messaging.domain.port.out.RoomSummarySearchCriteria;
 import dev.amir.synapse.messaging.domain.port.out.SaveRoomPort;
 import dev.amir.synapse.messaging.domain.value_object.MemberId;
 import jakarta.persistence.EntityManager;
@@ -46,6 +50,8 @@ class RoomPersistenceIntegrationTest {
 
   @Autowired private LoadRoomPort loadRoomPort;
 
+  @Autowired private ListRoomSummariesPort listRoomSummariesPort;
+
   @Autowired private EntityManager entityManager;
 
   @DynamicPropertySource
@@ -77,5 +83,92 @@ class RoomPersistenceIntegrationTest {
     assertThat(reloaded.getLastMessagesAt())
         .isCloseTo(lastMessagesAt, within(1, ChronoUnit.MILLIS));
     assertThat(reloaded.getLastMessagesAt()).isAfter(reloaded.getCreatedAt());
+  }
+
+  @Test
+  @Transactional
+  void listRoomSummariesReturnsMemberScopedActiveRoomsSortedByLastMessageActivity()
+      throws InterruptedException {
+    var user = MemberId.generate();
+    var first = Room.createGroupRoom(user, "First", null);
+    Thread.sleep(10);
+    var second = Room.createChannel(user, "Second", null);
+    var outsiderOnly = Room.createGroupRoom(MemberId.generate(), "Outsider", null);
+    var archived = Room.createGroupRoom(user, "Archived", null);
+    archived.archive();
+
+    saveRoomPort.save(first);
+    saveRoomPort.save(second);
+    saveRoomPort.save(outsiderOnly);
+    saveRoomPort.save(archived);
+    entityManager.flush();
+    entityManager.clear();
+
+    var activePage =
+        listRoomSummariesPort.findRoomSummaries(
+            new RoomSummarySearchCriteria(user.getValue(), null, RoomStatus.ACTIVE, 0, 10));
+
+    assertThat(activePage.totalElements()).isEqualTo(2);
+    assertThat(activePage.totalPages()).isEqualTo(1);
+    assertThat(activePage.items())
+        .extracting(RoomSummaryProjection::roomId)
+        .containsExactly(second.getId().getValue(), first.getId().getValue());
+    assertThat(activePage.items())
+        .allSatisfy(
+            summary -> {
+              assertThat(summary.status()).isEqualTo(RoomStatus.ACTIVE);
+              assertThat(summary.memberCount()).isEqualTo(1);
+            });
+
+    var groupPage =
+        listRoomSummariesPort.findRoomSummaries(
+            new RoomSummarySearchCriteria(
+                user.getValue(), RoomType.GROUP, RoomStatus.ACTIVE, 0, 10));
+
+    assertThat(groupPage.items())
+        .singleElement()
+        .satisfies(
+            summary -> {
+              assertThat(summary.roomId()).isEqualTo(first.getId().getValue());
+              assertThat(summary.type()).isEqualTo(RoomType.GROUP);
+              assertThat(summary.name()).isEqualTo("First");
+            });
+
+    var archivedPage =
+        listRoomSummariesPort.findRoomSummaries(
+            new RoomSummarySearchCriteria(user.getValue(), null, RoomStatus.ARCHIVED, 0, 10));
+
+    assertThat(archivedPage.items())
+        .singleElement()
+        .satisfies(
+            summary -> {
+              assertThat(summary.roomId()).isEqualTo(archived.getId().getValue());
+              assertThat(summary.status()).isEqualTo(RoomStatus.ARCHIVED);
+            });
+  }
+
+  @Test
+  @Transactional
+  void listRoomSummariesPaginatesResults() {
+    var user = MemberId.generate();
+    for (var i = 0; i < 12; i++) {
+      saveRoomPort.save(Room.createGroupRoom(user, "Room " + i, null));
+    }
+    entityManager.flush();
+    entityManager.clear();
+
+    var firstPage =
+        listRoomSummariesPort.findRoomSummaries(
+            new RoomSummarySearchCriteria(user.getValue(), null, RoomStatus.ACTIVE, 0, 10));
+    var secondPage =
+        listRoomSummariesPort.findRoomSummaries(
+            new RoomSummarySearchCriteria(user.getValue(), null, RoomStatus.ACTIVE, 1, 10));
+
+    assertThat(firstPage.items()).hasSize(10);
+    assertThat(firstPage.totalElements()).isEqualTo(12);
+    assertThat(firstPage.totalPages()).isEqualTo(2);
+    assertThat(secondPage.items()).hasSize(2);
+    assertThat(secondPage.totalElements()).isEqualTo(12);
+    assertThat(secondPage.totalPages()).isEqualTo(2);
   }
 }
