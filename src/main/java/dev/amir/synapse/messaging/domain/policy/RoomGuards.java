@@ -36,10 +36,16 @@ public final class RoomGuards {
   }
 
   public static void validateCanAddMember(RoomType roomType, int currentParticipantCount) {
+    validateCanAddMembers(roomType, currentParticipantCount, 1);
+  }
+
+  public static void validateCanAddMembers(
+      RoomType roomType, int currentParticipantCount, int requestedParticipantCount) {
     if (roomType.equals(RoomType.DIRECT)) {
       throw new RoomValidationException("Cannot add members to a direct message.");
     }
-    if (roomType.equals(RoomType.GROUP) && currentParticipantCount >= MAX_GROUP_CAPACITY) {
+    if (roomType.equals(RoomType.GROUP)
+        && currentParticipantCount + requestedParticipantCount > MAX_GROUP_CAPACITY) {
       throw new RoomValidationException("Group has reached the maximum number of members.");
     }
   }

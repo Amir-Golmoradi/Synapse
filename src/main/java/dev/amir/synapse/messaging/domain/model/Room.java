@@ -6,6 +6,7 @@ import dev.amir.synapse.messaging.domain.enums.RoomType;
 import dev.amir.synapse.messaging.domain.event.MemberCreatedEvent;
 import dev.amir.synapse.messaging.domain.event.MemberRemovedEvent;
 import dev.amir.synapse.messaging.domain.event.MemberRoleChangedEvent;
+import dev.amir.synapse.messaging.domain.event.MembersAddedEvent;
 import dev.amir.synapse.messaging.domain.event.RoomArchivedEvent;
 import dev.amir.synapse.messaging.domain.event.RoomCreatedEvent;
 import dev.amir.synapse.messaging.domain.exception.RoomValidationException;
@@ -267,6 +268,38 @@ public final class Room extends AggregateRoot<RoomId, DomainEvent> {
     var newMember = RoomMember.create(memberId, RoomRole.MEMBER, Instant.now());
     members.put(memberId, newMember);
     registerEvent(new MemberCreatedEvent(getId(), memberId, newMember.getJoinedAt()));
+  }
+
+  /**
+   * Adds multiple members atomically.
+   *
+   * <p>If any requested member is invalid or already belongs to this room, no members are added and
+   * no domain event is emitted.
+   */
+  public void addMembers(Set<MemberId> memberIds) {
+    requireActive();
+    Objects.requireNonNull(memberIds, "Member IDs cannot be null");
+
+    if (memberIds.isEmpty()) {
+      return;
+    }
+
+    memberIds.forEach(memberId -> Objects.requireNonNull(memberId, "Member ID cannot be null"));
+    var newMemberIds = Set.copyOf(memberIds);
+
+    var existingMember =
+        newMemberIds.stream().filter(members::containsKey).findFirst().orElse(null);
+    if (existingMember != null) {
+      throw new RoomValidationException(
+          "User '%s' is already a member of this room.".formatted(existingMember.getValue()));
+    }
+
+    RoomGuards.validateCanAddMembers(getRoomType(), memberCount(), newMemberIds.size());
+
+    var joinedAt = Instant.now();
+    newMemberIds.forEach(
+        memberId -> members.put(memberId, RoomMember.create(memberId, RoomRole.MEMBER, joinedAt)));
+    registerEvent(new MembersAddedEvent(getId(), newMemberIds, joinedAt));
   }
 
   // ── Domain queries ──────────────────────────────────────────────────────
