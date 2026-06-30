@@ -27,11 +27,14 @@ public class RoomPersistenceMapper {
   }
 
   public RoomJpaEntity toEntity(Room room) {
-    return RoomJpaEntity.create(
+    return RoomJpaEntity.fromDomainState(
         room.getId().getValue(),
         room.getRoomType(),
         room.getName(),
         room.getAvatarUrl(),
+        room.getStatus(),
+        room.getCreatedAt(),
+        room.getLastMessagesAt(),
         room.getMembers().values().stream()
             .map(RoomMemberEmbeddable::fromDomain)
             .collect(Collectors.toUnmodifiableSet()));

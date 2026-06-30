@@ -16,6 +16,7 @@ import jakarta.persistence.Table;
 import jakarta.persistence.Version;
 import java.time.Instant;
 import java.util.HashSet;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
@@ -114,14 +115,18 @@ public class RoomJpaEntity {
       RoomType roomType,
       String name,
       String avatarUrl,
+      RoomStatus status,
+      Instant createdAt,
+      Instant lastMessagesAt,
       Set<RoomMemberEmbeddable> members) {
     this.id = id;
     this.roomType = roomType;
     this.name = name;
     this.avatarUrl = avatarUrl;
-    this.status = RoomStatus.ACTIVE;
-    this.createdAt = Instant.now();
-    this.lastMessagesAt = this.createdAt;
+    this.status = Objects.requireNonNull(status, "Room status cannot be null");
+    this.createdAt = Objects.requireNonNull(createdAt, "Created timestamp cannot be null");
+    this.lastMessagesAt =
+        Objects.requireNonNull(lastMessagesAt, "Last message timestamp cannot be null");
     this.members = new HashSet<>(members);
   }
 
@@ -131,7 +136,21 @@ public class RoomJpaEntity {
       String name,
       String avatarUrl,
       Set<RoomMemberEmbeddable> members) {
-    return new RoomJpaEntity(id, roomType, name, avatarUrl, members);
+    var now = Instant.now();
+    return new RoomJpaEntity(id, roomType, name, avatarUrl, RoomStatus.ACTIVE, now, now, members);
+  }
+
+  public static RoomJpaEntity fromDomainState(
+      UUID id,
+      RoomType roomType,
+      String name,
+      String avatarUrl,
+      RoomStatus status,
+      Instant createdAt,
+      Instant lastMessagesAt,
+      Set<RoomMemberEmbeddable> members) {
+    return new RoomJpaEntity(
+        id, roomType, name, avatarUrl, status, createdAt, lastMessagesAt, members);
   }
 
   // ── Getters ──────────────────────────────────────────────────────────────
