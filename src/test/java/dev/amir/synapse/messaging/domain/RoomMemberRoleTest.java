@@ -7,6 +7,8 @@ import dev.amir.synapse.messaging.domain.enums.RoomRole;
 import dev.amir.synapse.messaging.domain.exception.RoomValidationException;
 import dev.amir.synapse.messaging.domain.model.Room;
 import dev.amir.synapse.messaging.domain.value_object.MemberId;
+import dev.amir.synapse.messaging.domain.value_object.RoomMember;
+import java.time.Instant;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
@@ -15,6 +17,45 @@ class RoomMemberRoleTest {
   // Small helper: role of a given member in a room.
   private static RoomRole roleOf(Room room, MemberId id) {
     return room.getMembers().get(id).getRole();
+  }
+
+  @Nested
+  class MemberEncapsulation {
+
+    @Test
+    void returnedMembersCannotBeMutated() {
+      var owner = MemberId.generate();
+      var room = Room.createGroupRoom(owner, "Engineering", null);
+      var outsider = MemberId.generate();
+
+      var members = room.getMembers();
+
+      assertThatThrownBy(
+              () ->
+                  members.put(
+                      outsider, RoomMember.create(outsider, RoomRole.MEMBER, Instant.now())))
+          .isInstanceOf(UnsupportedOperationException.class);
+      assertThatThrownBy(() -> members.remove(owner))
+          .isInstanceOf(UnsupportedOperationException.class);
+      assertThatThrownBy(members::clear).isInstanceOf(UnsupportedOperationException.class);
+
+      assertThat(room.memberCount()).isEqualTo(1);
+      assertThat(room.hasMember(owner)).isTrue();
+      assertThat(room.hasMember(outsider)).isFalse();
+    }
+
+    @Test
+    void returnedMembersAreASnapshotNotALiveView() {
+      var owner = MemberId.generate();
+      var added = MemberId.generate();
+      var room = Room.createGroupRoom(owner, "Engineering", null);
+
+      var members = room.getMembers();
+      room.addMember(added);
+
+      assertThat(members).containsOnlyKeys(owner);
+      assertThat(room.getMembers()).containsKeys(owner, added);
+    }
   }
 
   @Nested

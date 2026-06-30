@@ -50,8 +50,12 @@ public final class Room extends AggregateRoot<RoomId, DomainEvent> {
   private final RoomType roomType;
   private final Instant createdAt;
 
+  /**
+   * Returns an unmodifiable snapshot of the current members. Callers must use {@link #addMember}
+   * and {@link #removeMember} for mutations.
+   */
   public Map<MemberId, RoomMember> getMembers() {
-    return members;
+    return Map.copyOf(members);
   }
 
   /**
@@ -465,11 +469,6 @@ public final class Room extends AggregateRoot<RoomId, DomainEvent> {
   public Instant getLastMessagesAt() {
     return lastMessagesAt;
   }
-
-  /**
-   * Returns an unmodifiable view of the current members. Callers must use {@link #addMember} and
-   * {@link #removeMember} for mutations.
-   */
 
   /**
    * Identity-based equality. Two Room instances are the same room if and only if they share the
