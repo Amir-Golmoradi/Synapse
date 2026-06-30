@@ -1,18 +1,19 @@
 package dev.amir.synapse.messaging.infrastructure.adapter.out.persistence.repo;
 
-import dev.amir.synapse.messaging.domain.enums.RoomStatus;
 import dev.amir.synapse.messaging.domain.model.Room;
+import dev.amir.synapse.messaging.domain.port.out.ListRoomSummariesPort;
 import dev.amir.synapse.messaging.domain.port.out.LoadRoomPort;
+import dev.amir.synapse.messaging.domain.port.out.RoomSummaryPage;
+import dev.amir.synapse.messaging.domain.port.out.RoomSummarySearchCriteria;
 import dev.amir.synapse.messaging.domain.port.out.SaveRoomPort;
 import dev.amir.synapse.messaging.infrastructure.adapter.out.persistence.model.RoomPersistenceMapper;
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public class RoomPortImpl implements LoadRoomPort, SaveRoomPort {
+public class RoomPortImpl implements LoadRoomPort, SaveRoomPort, ListRoomSummariesPort {
   private final RoomPersistenceMapper mapper;
   private final RoomJpaRepository roomJpaRepository;
 
@@ -27,12 +28,20 @@ public class RoomPortImpl implements LoadRoomPort, SaveRoomPort {
   }
 
   @Override
-  public List<Room> findActiveRoomsForUser(UUID userId) {
-    return roomJpaRepository
-        .findRoomsByStatusAndMember(RoomStatus.ACTIVE, userId, Pageable.unpaged())
-        .stream()
-        .map(mapper::toDomain)
-        .toList();
+  public RoomSummaryPage findRoomSummaries(RoomSummarySearchCriteria criteria) {
+    var page =
+        roomJpaRepository.findRoomSummariesByMember(
+            criteria.userId(),
+            criteria.type(),
+            criteria.status(),
+            PageRequest.of(criteria.page(), criteria.size()));
+
+    return new RoomSummaryPage(
+        page.getContent(),
+        page.getNumber(),
+        page.getSize(),
+        page.getTotalElements(),
+        page.getTotalPages());
   }
 
   @Override
