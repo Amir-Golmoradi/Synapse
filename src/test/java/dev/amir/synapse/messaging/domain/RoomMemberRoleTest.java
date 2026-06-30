@@ -4,11 +4,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import dev.amir.synapse.messaging.domain.enums.RoomRole;
+import dev.amir.synapse.messaging.domain.event.MembersAddedEvent;
 import dev.amir.synapse.messaging.domain.exception.RoomValidationException;
 import dev.amir.synapse.messaging.domain.model.Room;
 import dev.amir.synapse.messaging.domain.value_object.MemberId;
 import dev.amir.synapse.messaging.domain.value_object.RoomMember;
 import java.time.Instant;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
@@ -17,6 +21,10 @@ class RoomMemberRoleTest {
   // Small helper: role of a given member in a room.
   private static RoomRole roleOf(Room room, MemberId id) {
     return room.getMembers().get(id).getRole();
+  }
+
+  private static Set<MemberId> memberIds(int count) {
+    return IntStream.range(0, count).mapToObj(i -> MemberId.generate()).collect(Collectors.toSet());
   }
 
   @Nested
@@ -55,6 +63,103 @@ class RoomMemberRoleTest {
 
       assertThat(members).containsOnlyKeys(owner);
       assertThat(room.getMembers()).containsKeys(owner, added);
+    }
+  }
+
+  @Nested
+  class BatchMemberAdditions {
+
+    @Test
+    void addMembersAddsEveryMemberAsPlainMember() {
+      var owner = MemberId.generate();
+      var room = Room.createGroupRoom(owner, "Engineering", null);
+      var additions = memberIds(3);
+
+      room.addMembers(additions);
+
+      assertThat(room.memberCount()).isEqualTo(4);
+      assertThat(room.getMembers()).containsKeys(additions.toArray(MemberId[]::new));
+      additions.forEach(id -> assertThat(roleOf(room, id)).isEqualTo(RoomRole.MEMBER));
+    }
+
+    @Test
+    void addMembersEmitsOneBatchEvent() {
+      var owner = MemberId.generate();
+      var room = Room.createGroupRoom(owner, "Engineering", null);
+      var additions = memberIds(2);
+      room.clearDomainEvents();
+
+      room.addMembers(additions);
+
+      var events = room.pullDomainEvents();
+      assertThat(events)
+          .singleElement()
+          .isInstanceOfSatisfying(
+              MembersAddedEvent.class,
+              event ->
+                  assertThat(event.memberIds()).containsExactlyInAnyOrderElementsOf(additions));
+    }
+
+    @Test
+    void addMembersIsAtomicWhenAnyMemberAlreadyExists() {
+      var owner = MemberId.generate();
+      var room = Room.createGroupRoom(owner, "Engineering", null);
+      var existing = MemberId.generate();
+      var rejected = MemberId.generate();
+      room.addMember(existing);
+      room.clearDomainEvents();
+
+      assertThatThrownBy(() -> room.addMembers(Set.of(existing, rejected)))
+          .isInstanceOf(RoomValidationException.class);
+
+      assertThat(room.memberCount()).isEqualTo(2);
+      assertThat(room.hasMember(existing)).isTrue();
+      assertThat(room.hasMember(rejected)).isFalse();
+      assertThat(room.pullDomainEvents()).isEmpty();
+    }
+
+    @Test
+    void addMembersRejectsDirectRoomsWithoutAddingMembers() {
+      var first = MemberId.generate();
+      var second = MemberId.generate();
+      var room = Room.createDirectRoom(first, second);
+      var rejected = MemberId.generate();
+      room.clearDomainEvents();
+
+      assertThatThrownBy(() -> room.addMembers(Set.of(rejected)))
+          .isInstanceOf(RoomValidationException.class)
+          .hasMessageContaining("direct message");
+
+      assertThat(room.memberCount()).isEqualTo(2);
+      assertThat(room.hasMember(rejected)).isFalse();
+      assertThat(room.pullDomainEvents()).isEmpty();
+    }
+
+    @Test
+    void addMembersRejectsGroupCapacityAtomically() {
+      var owner = MemberId.generate();
+      var room = Room.createGroupRoom(owner, "Engineering", null);
+      var additions = memberIds(2000);
+      room.clearDomainEvents();
+
+      assertThatThrownBy(() -> room.addMembers(additions))
+          .isInstanceOf(RoomValidationException.class)
+          .hasMessageContaining("maximum");
+
+      assertThat(room.memberCount()).isEqualTo(1);
+      assertThat(room.pullDomainEvents()).isEmpty();
+    }
+
+    @Test
+    void addMembersWithEmptySetIsANoOp() {
+      var owner = MemberId.generate();
+      var room = Room.createGroupRoom(owner, "Engineering", null);
+      room.clearDomainEvents();
+
+      room.addMembers(Set.of());
+
+      assertThat(room.memberCount()).isEqualTo(1);
+      assertThat(room.pullDomainEvents()).isEmpty();
     }
   }
 
