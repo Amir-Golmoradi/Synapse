@@ -5,6 +5,7 @@ import dev.amir.synapse.messaging.domain.exception.RoomValidationException;
 import dev.amir.synapse.shared.domain.DomainException;
 import java.net.URI;
 import java.util.Locale;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
@@ -37,6 +38,15 @@ class RoomExceptionHandler {
         "You are not allowed to access this room.");
   }
 
+  @ExceptionHandler(OptimisticLockingFailureException.class)
+  ResponseEntity<ProblemDetail> handleOptimisticLock(OptimisticLockingFailureException exception) {
+    return response(
+        HttpStatus.CONFLICT,
+        "ROOM_CONCURRENT_MODIFICATION",
+        "Room changed concurrently",
+        "The room was changed by another request. Reload and retry.");
+  }
+
   private static ResponseEntity<ProblemDetail> response(
       HttpStatus status, String errorCode, String title, String detail) {
     return ResponseEntity.status(status).body(problem(status, errorCode, title, detail));
@@ -60,6 +70,8 @@ class RoomExceptionHandler {
       case "DIRECT_MESSAGE_WITH_SELF" -> "A direct room requires two different users.";
       case "ROOM_PARTICIPANT_NOT_FOUND" ->
           "One or more requested room participants were not found.";
+      case "ROOM_CONCURRENT_MODIFICATION" ->
+          "The room was changed by another request. Reload and retry.";
       case "ROOM_VALIDATION_FAILED" -> "The room request violates a room rule.";
       default -> "The room request could not be completed.";
     };

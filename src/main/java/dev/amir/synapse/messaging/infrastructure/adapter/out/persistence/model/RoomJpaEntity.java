@@ -118,6 +118,7 @@ public class RoomJpaEntity {
       RoomStatus status,
       Instant createdAt,
       Instant lastMessagesAt,
+      Long version,
       Set<RoomMemberEmbeddable> members) {
     this.id = id;
     this.roomType = roomType;
@@ -127,6 +128,7 @@ public class RoomJpaEntity {
     this.createdAt = Objects.requireNonNull(createdAt, "Created timestamp cannot be null");
     this.lastMessagesAt =
         Objects.requireNonNull(lastMessagesAt, "Last message timestamp cannot be null");
+    this.version = version;
     this.members = new HashSet<>(members);
   }
 
@@ -137,7 +139,8 @@ public class RoomJpaEntity {
       String avatarUrl,
       Set<RoomMemberEmbeddable> members) {
     var now = Instant.now();
-    return new RoomJpaEntity(id, roomType, name, avatarUrl, RoomStatus.ACTIVE, now, now, members);
+    return new RoomJpaEntity(
+        id, roomType, name, avatarUrl, RoomStatus.ACTIVE, now, now, null, members);
   }
 
   public static RoomJpaEntity fromDomainState(
@@ -148,9 +151,10 @@ public class RoomJpaEntity {
       RoomStatus status,
       Instant createdAt,
       Instant lastMessagesAt,
+      Long version,
       Set<RoomMemberEmbeddable> members) {
     return new RoomJpaEntity(
-        id, roomType, name, avatarUrl, status, createdAt, lastMessagesAt, members);
+        id, roomType, name, avatarUrl, status, createdAt, lastMessagesAt, version, members);
   }
 
   // ── Getters ──────────────────────────────────────────────────────────────

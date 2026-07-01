@@ -1,6 +1,7 @@
 package dev.amir.synapse.messaging.infrastructure.adapter.out.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.within;
 
 import dev.amir.synapse.messaging.domain.enums.RoomStatus;
@@ -18,6 +19,7 @@ import java.time.temporal.ChronoUnit;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.transaction.annotation.Transactional;
@@ -86,6 +88,37 @@ class RoomPersistenceIntegrationTest {
     assertThat(reloaded.getLastMessagesAt())
         .isCloseTo(lastMessagesAt, within(1, ChronoUnit.MILLIS));
     assertThat(reloaded.getLastMessagesAt()).isAfter(reloaded.getCreatedAt());
+  }
+
+  @Test
+  @Transactional
+  void staleRoomSaveFailsWithOptimisticLockingFailure() {
+    var owner = MemberId.generate();
+    var room = Room.createGroupRoom(owner, "Concurrent", null);
+
+    saveRoomPort.save(room);
+    entityManager.flush();
+    entityManager.clear();
+
+    var firstCopy = loadRoomPort.findById(room.getId().getValue()).orElseThrow();
+    entityManager.clear();
+    var staleCopy = loadRoomPort.findById(room.getId().getValue()).orElseThrow();
+    entityManager.clear();
+
+    firstCopy.addMember(MemberId.generate());
+    saveRoomPort.save(firstCopy);
+    entityManager.flush();
+    entityManager.clear();
+
+    staleCopy.addMember(MemberId.generate());
+
+    assertThat(staleCopy.getVersion()).isEqualTo(firstCopy.getVersion());
+    assertThatThrownBy(
+            () -> {
+              saveRoomPort.save(staleCopy);
+              entityManager.flush();
+            })
+        .isInstanceOf(OptimisticLockingFailureException.class);
   }
 
   @Test

@@ -23,6 +23,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -162,6 +163,36 @@ class RoomCommandApiTest {
             .andExpect(jsonPath("$.status").value(400))
             .andExpect(jsonPath("$.detail").value("The room request violates a room rule."))
             .andExpect(jsonPath("$.errorCode").value("ROOM_VALIDATION_FAILED"))
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+
+    assertThat(response).doesNotContain(rawMessage);
+  }
+
+  @Test
+  void optimisticLockingFailureMapsToSanitizedConflictProblem() throws Exception {
+    var creatorId = UUID.randomUUID();
+    var rawMessage = "stale room " + UUID.randomUUID();
+    when(groupUseCase.handle(any())).thenThrow(new OptimisticLockingFailureException(rawMessage));
+
+    var response =
+        mockMvc
+            .perform(
+                post("/api/v1/room/group")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(
+                        """
+                        {"name":"Engineering","initialMemberIds":[]}
+                        """)
+                    .principal(authenticated(creatorId)))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.title").value("Room changed concurrently"))
+            .andExpect(jsonPath("$.status").value(409))
+            .andExpect(
+                jsonPath("$.detail")
+                    .value("The room was changed by another request. Reload and retry."))
+            .andExpect(jsonPath("$.errorCode").value("ROOM_CONCURRENT_MODIFICATION"))
             .andReturn()
             .getResponse()
             .getContentAsString();

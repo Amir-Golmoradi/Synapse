@@ -19,6 +19,7 @@ public class RoomPersistenceMapper {
             entity.getStatus(),
             entity.getCreatedAt(),
             entity.getLastMessagesAt(),
+            entity.getVersion(),
             entity.getMembers().stream()
                 .map(RoomMemberEmbeddable::toDomain)
                 .collect(Collectors.toUnmodifiableSet()));
@@ -35,6 +36,7 @@ public class RoomPersistenceMapper {
         room.getStatus(),
         room.getCreatedAt(),
         room.getLastMessagesAt(),
+        room.getVersion(),
         room.getMembers().values().stream()
             .map(RoomMemberEmbeddable::fromDomain)
             .collect(Collectors.toUnmodifiableSet()));
