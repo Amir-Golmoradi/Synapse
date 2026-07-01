@@ -50,6 +50,7 @@ public final class Room extends AggregateRoot<RoomId, DomainEvent> {
   // ── State ───────────────────────────────────────────────────────────────
   private final RoomType roomType;
   private final Instant createdAt;
+  private final Long version;
 
   /**
    * Returns an unmodifiable snapshot of the current members. Callers must use {@link #addMember}
@@ -84,6 +85,7 @@ public final class Room extends AggregateRoot<RoomId, DomainEvent> {
         Objects.requireNonNull(snapshot.createdAt(), "Created timestamp cannot be null");
     this.lastMessagesAt = Objects.requireNonNullElse(snapshot.lastMessagesAt(), this.createdAt);
     this.status = Objects.requireNonNull(snapshot.status(), "Room status cannot be null");
+    this.version = snapshot.version();
   }
 
   // ── Factory methods ─────────────────────────────────────────────────────
@@ -239,6 +241,7 @@ public final class Room extends AggregateRoot<RoomId, DomainEvent> {
         RoomStatus.ACTIVE,
         createdAt,
         lastMessagesAt,
+        null,
         initialMembers);
   }
 
@@ -497,6 +500,10 @@ public final class Room extends AggregateRoot<RoomId, DomainEvent> {
 
   public Instant getCreatedAt() {
     return createdAt;
+  }
+
+  public Long getVersion() {
+    return version;
   }
 
   public Instant getLastMessagesAt() {
