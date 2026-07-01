@@ -11,12 +11,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import dev.amir.synapse.identity.domain.port.in.access_token.AuthenticateAccessTokenUseCase;
 import dev.amir.synapse.messaging.domain.enums.RoomStatus;
 import dev.amir.synapse.messaging.domain.enums.RoomType;
+import dev.amir.synapse.messaging.domain.port.in.get_room_by_id.GetRoomByIdQuery;
+import dev.amir.synapse.messaging.domain.port.in.get_room_by_id.GetRoomByIdUseCase;
 import dev.amir.synapse.messaging.domain.port.in.list_room_inbox.ListRoomInboxQuery;
 import dev.amir.synapse.messaging.domain.port.in.list_room_inbox.ListRoomInboxResponse;
 import dev.amir.synapse.messaging.domain.port.in.list_room_inbox.ListRoomInboxUseCase;
 import dev.amir.synapse.messaging.domain.port.in.list_room_inbox.RoomSummary;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -34,6 +37,8 @@ class RoomQueryApiTest {
   @Autowired private MockMvc mockMvc;
 
   @MockitoBean private ListRoomInboxUseCase listRoomInboxUseCase;
+
+  @MockitoBean private GetRoomByIdUseCase getRoomByIdUseCase;
 
   @MockitoBean private AuthenticateAccessTokenUseCase authenticateAccessTokenUseCase;
 
@@ -113,6 +118,55 @@ class RoomQueryApiTest {
               assertThat(query.page()).isEqualTo(2);
               assertThat(query.size()).isEqualTo(10);
             });
+  }
+
+  @Test
+  void getByIdReturnsMemberScopedRoomSummary() throws Exception {
+    var userId = UUID.randomUUID();
+    var roomId = UUID.randomUUID();
+    var createdAt = Instant.parse("2026-06-30T10:00:00Z");
+    var lastMessagesAt = Instant.parse("2026-06-30T10:05:00Z");
+    when(getRoomByIdUseCase.handle(any(GetRoomByIdQuery.class)))
+        .thenReturn(
+            Optional.of(
+                new RoomSummary(
+                    roomId,
+                    RoomType.GROUP,
+                    RoomStatus.ARCHIVED,
+                    "Engineering",
+                    null,
+                    2,
+                    createdAt,
+                    lastMessagesAt)));
+
+    mockMvc
+        .perform(get("/api/v1/room/{roomId}", roomId).principal(authenticated(userId)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.roomId").value(roomId.toString()))
+        .andExpect(jsonPath("$.type").value("GROUP"))
+        .andExpect(jsonPath("$.status").value("ARCHIVED"))
+        .andExpect(jsonPath("$.name").value("Engineering"))
+        .andExpect(jsonPath("$.memberCount").value(2));
+
+    var captor = ArgumentCaptor.forClass(GetRoomByIdQuery.class);
+    verify(getRoomByIdUseCase).handle(captor.capture());
+    assertThat(captor.getValue())
+        .satisfies(
+            query -> {
+              assertThat(query.userId()).isEqualTo(userId);
+              assertThat(query.roomId()).isEqualTo(roomId);
+            });
+  }
+
+  @Test
+  void getByIdReturnsNotFoundWhenRoomIsMissingOrUserIsNotMember() throws Exception {
+    var userId = UUID.randomUUID();
+    var roomId = UUID.randomUUID();
+    when(getRoomByIdUseCase.handle(any(GetRoomByIdQuery.class))).thenReturn(Optional.empty());
+
+    mockMvc
+        .perform(get("/api/v1/room/{roomId}", roomId).principal(authenticated(userId)))
+        .andExpect(status().isNotFound());
   }
 
   private static UsernamePasswordAuthenticationToken authenticated(UUID userId) {

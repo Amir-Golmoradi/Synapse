@@ -8,6 +8,7 @@ import dev.amir.synapse.messaging.domain.enums.RoomType;
 import dev.amir.synapse.messaging.domain.model.Room;
 import dev.amir.synapse.messaging.domain.port.out.ListRoomSummariesPort;
 import dev.amir.synapse.messaging.domain.port.out.LoadRoomPort;
+import dev.amir.synapse.messaging.domain.port.out.LoadRoomSummaryPort;
 import dev.amir.synapse.messaging.domain.port.out.RoomSummaryProjection;
 import dev.amir.synapse.messaging.domain.port.out.RoomSummarySearchCriteria;
 import dev.amir.synapse.messaging.domain.port.out.SaveRoomPort;
@@ -51,6 +52,8 @@ class RoomPersistenceIntegrationTest {
   @Autowired private LoadRoomPort loadRoomPort;
 
   @Autowired private ListRoomSummariesPort listRoomSummariesPort;
+
+  @Autowired private LoadRoomSummaryPort loadRoomSummaryPort;
 
   @Autowired private EntityManager entityManager;
 
@@ -170,5 +173,40 @@ class RoomPersistenceIntegrationTest {
     assertThat(secondPage.items()).hasSize(2);
     assertThat(secondPage.totalElements()).isEqualTo(12);
     assertThat(secondPage.totalPages()).isEqualTo(2);
+  }
+
+  @Test
+  @Transactional
+  void loadRoomSummaryByIdReturnsArchivedRoomOnlyForMembers() {
+    var user = MemberId.generate();
+    var archivedRoom = Room.createGroupRoom(user, "Archived", null);
+    archivedRoom.archive();
+    var outsiderOnlyRoom = Room.createGroupRoom(MemberId.generate(), "Outsider", null);
+
+    saveRoomPort.save(archivedRoom);
+    saveRoomPort.save(outsiderOnlyRoom);
+    entityManager.flush();
+    entityManager.clear();
+
+    var found =
+        loadRoomSummaryPort.findRoomSummaryByIdForMember(
+            archivedRoom.getId().getValue(), user.getValue());
+
+    assertThat(found)
+        .hasValueSatisfying(
+            summary -> {
+              assertThat(summary.roomId()).isEqualTo(archivedRoom.getId().getValue());
+              assertThat(summary.status()).isEqualTo(RoomStatus.ARCHIVED);
+              assertThat(summary.name()).isEqualTo("Archived");
+              assertThat(summary.memberCount()).isEqualTo(1);
+            });
+    assertThat(
+            loadRoomSummaryPort.findRoomSummaryByIdForMember(
+                outsiderOnlyRoom.getId().getValue(), user.getValue()))
+        .isEmpty();
+    assertThat(
+            loadRoomSummaryPort.findRoomSummaryByIdForMember(
+                MemberId.generate().getValue(), user.getValue()))
+        .isEmpty();
   }
 }

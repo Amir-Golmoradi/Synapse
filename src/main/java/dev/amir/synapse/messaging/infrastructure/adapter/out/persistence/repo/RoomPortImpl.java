@@ -3,7 +3,9 @@ package dev.amir.synapse.messaging.infrastructure.adapter.out.persistence.repo;
 import dev.amir.synapse.messaging.domain.model.Room;
 import dev.amir.synapse.messaging.domain.port.out.ListRoomSummariesPort;
 import dev.amir.synapse.messaging.domain.port.out.LoadRoomPort;
+import dev.amir.synapse.messaging.domain.port.out.LoadRoomSummaryPort;
 import dev.amir.synapse.messaging.domain.port.out.RoomSummaryPage;
+import dev.amir.synapse.messaging.domain.port.out.RoomSummaryProjection;
 import dev.amir.synapse.messaging.domain.port.out.RoomSummarySearchCriteria;
 import dev.amir.synapse.messaging.domain.port.out.SaveRoomPort;
 import dev.amir.synapse.messaging.infrastructure.adapter.out.persistence.model.RoomPersistenceMapper;
@@ -13,7 +15,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public class RoomPortImpl implements LoadRoomPort, SaveRoomPort, ListRoomSummariesPort {
+public class RoomPortImpl
+    implements LoadRoomPort, SaveRoomPort, ListRoomSummariesPort, LoadRoomSummaryPort {
   private final RoomPersistenceMapper mapper;
   private final RoomJpaRepository roomJpaRepository;
 
@@ -42,6 +45,11 @@ public class RoomPortImpl implements LoadRoomPort, SaveRoomPort, ListRoomSummari
         page.getSize(),
         page.getTotalElements(),
         page.getTotalPages());
+  }
+
+  @Override
+  public Optional<RoomSummaryProjection> findRoomSummaryByIdForMember(UUID roomId, UUID userId) {
+    return roomJpaRepository.findRoomSummaryByIdForMember(roomId, userId);
   }
 
   @Override
