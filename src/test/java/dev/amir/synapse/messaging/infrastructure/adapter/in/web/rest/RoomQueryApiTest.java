@@ -169,6 +169,30 @@ class RoomQueryApiTest {
         .andExpect(status().isNotFound());
   }
 
+  @Test
+  void roomAccessDeniedMapsToSanitizedForbiddenProblem() throws Exception {
+    var userId = UUID.randomUUID();
+    var rawMessage =
+        "Access Denied: User [%s] is not a member of Room [%s]."
+            .formatted(userId, UUID.randomUUID());
+    when(listRoomInboxUseCase.handle(any(ListRoomInboxQuery.class)))
+        .thenThrow(new SecurityException(rawMessage));
+
+    var response =
+        mockMvc
+            .perform(get("/api/v1/room/inbox").principal(authenticated(userId)))
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.title").value("Room access denied"))
+            .andExpect(jsonPath("$.status").value(403))
+            .andExpect(jsonPath("$.detail").value("You are not allowed to access this room."))
+            .andExpect(jsonPath("$.errorCode").value("ROOM_ACCESS_DENIED"))
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+
+    assertThat(response).doesNotContain(rawMessage).doesNotContain(userId.toString());
+  }
+
   private static UsernamePasswordAuthenticationToken authenticated(UUID userId) {
     return new UsernamePasswordAuthenticationToken(userId.toString(), null, List.of());
   }
