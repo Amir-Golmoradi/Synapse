@@ -4,6 +4,7 @@ import dev.amir.synapse.messaging.domain.enums.RoomStatus;
 import dev.amir.synapse.messaging.domain.enums.RoomType;
 import dev.amir.synapse.messaging.domain.port.out.RoomSummaryProjection;
 import dev.amir.synapse.messaging.infrastructure.adapter.out.persistence.model.RoomJpaEntity;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -59,4 +60,24 @@ public interface RoomJpaRepository extends JpaRepository<RoomJpaEntity, UUID> {
       @Param("type") RoomType type,
       @Param("status") RoomStatus status,
       Pageable pageable);
+
+  @Query(
+      """
+                         SELECT new dev.amir.synapse.messaging.domain.port.out.RoomSummaryProjection(
+                           r.id,
+                           r.roomType,
+                           r.status,
+                           r.name,
+                           r.avatarUrl,
+                           SIZE(r.members),
+                           r.createdAt,
+                           r.lastMessagesAt
+                         )
+                         FROM RoomJpaEntity r
+                         JOIN r.members m
+                         WHERE r.id = :roomId
+                           AND m.userId = :userId
+                     """)
+  Optional<RoomSummaryProjection> findRoomSummaryByIdForMember(
+      @Param("roomId") UUID roomId, @Param("userId") UUID userId);
 }
