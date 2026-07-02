@@ -3,6 +3,7 @@ package dev.amir.synapse.messaging.infrastructure.adapter.in.web.rest;
 import dev.amir.synapse.messaging.domain.exception.RoomOperationException;
 import dev.amir.synapse.messaging.domain.exception.RoomValidationException;
 import dev.amir.synapse.shared.domain.DomainException;
+import jakarta.validation.ConstraintViolationException;
 import java.net.URI;
 import java.util.Locale;
 import org.springframework.dao.OptimisticLockingFailureException;
@@ -45,6 +46,15 @@ class RoomExceptionHandler {
         "ROOM_CONCURRENT_MODIFICATION",
         "Room changed concurrently",
         "The room was changed by another request. Reload and retry.");
+  }
+
+  @ExceptionHandler(ConstraintViolationException.class)
+  ResponseEntity<ProblemDetail> handleConstraintViolation(ConstraintViolationException exception) {
+    return response(
+        HttpStatus.BAD_REQUEST,
+        "ROOM_REQUEST_INVALID",
+        "Room request is invalid",
+        "The room request parameters are invalid.");
   }
 
   private static ResponseEntity<ProblemDetail> response(

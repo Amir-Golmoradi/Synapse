@@ -2,9 +2,11 @@ package dev.amir.synapse.messaging.infrastructure.adapter.in.web.rest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -13,13 +15,21 @@ import dev.amir.synapse.messaging.application.command.create_direct_room.excepti
 import dev.amir.synapse.messaging.application.command.create_direct_room.exception.DirectMessageRecipientNotFoundException;
 import dev.amir.synapse.messaging.application.command.create_group_room.exception.GroupMembersNotFoundException;
 import dev.amir.synapse.messaging.domain.exception.RoomValidationException;
+import dev.amir.synapse.messaging.domain.port.in.create_channel_room.CreateChannelCommand;
+import dev.amir.synapse.messaging.domain.port.in.create_channel_room.CreateChannelResponse;
 import dev.amir.synapse.messaging.domain.port.in.create_channel_room.CreateChannelUseCase;
+import dev.amir.synapse.messaging.domain.port.in.create_direct_room.CreateDirectRoomCommand;
+import dev.amir.synapse.messaging.domain.port.in.create_direct_room.CreateDirectRoomResponse;
 import dev.amir.synapse.messaging.domain.port.in.create_direct_room.CreateDirectRoomUseCase;
+import dev.amir.synapse.messaging.domain.port.in.create_group_room.CreateGroupCommand;
+import dev.amir.synapse.messaging.domain.port.in.create_group_room.CreateGroupResponse;
 import dev.amir.synapse.messaging.domain.port.in.create_group_room.CreateGroupUseCase;
+import java.time.Instant;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -44,12 +54,202 @@ class RoomCommandApiTest {
   @MockitoBean private AuthenticateAccessTokenUseCase authenticateAccessTokenUseCase;
 
   @Test
+  void createDirectRoomReturnsCreatedResponseShape() throws Exception {
+    var creatorId = UUID.randomUUID();
+    var recipientId = UUID.randomUUID();
+    var roomId = UUID.randomUUID();
+    var createdAt = Instant.parse("2026-06-30T10:00:00Z");
+    when(directRoomUseCase.handle(any(CreateDirectRoomCommand.class)))
+        .thenReturn(new CreateDirectRoomResponse(roomId, creatorId, recipientId, createdAt));
+
+    mockMvc
+        .perform(
+            post("/api/v1/room/direct")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {"recipientId":"%s"}
+                        """
+                        .formatted(recipientId))
+                .principal(authenticated(creatorId)))
+        .andExpect(status().isCreated())
+        .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+        .andExpect(jsonPath("$.roomId").value(roomId.toString()))
+        .andExpect(jsonPath("$.creatorId").value(creatorId.toString()))
+        .andExpect(jsonPath("$.recipientId").value(recipientId.toString()))
+        .andExpect(jsonPath("$.createdAt").value(createdAt.toString()));
+
+    var captor = ArgumentCaptor.forClass(CreateDirectRoomCommand.class);
+    verify(directRoomUseCase).handle(captor.capture());
+    assertThat(captor.getValue())
+        .satisfies(
+            command -> {
+              assertThat(command.creatorId()).isEqualTo(creatorId);
+              assertThat(command.recipientId()).isEqualTo(recipientId);
+            });
+  }
+
+  @Test
+  void createGroupRoomReturnsCreatedResponseShape() throws Exception {
+    var creatorId = UUID.randomUUID();
+    var memberId = UUID.randomUUID();
+    var groupId = UUID.randomUUID();
+    var createdAt = Instant.parse("2026-06-30T10:00:00Z");
+    var avatarUrl = "https://cdn.example/group.png";
+    when(groupUseCase.handle(any(CreateGroupCommand.class)))
+        .thenReturn(new CreateGroupResponse(groupId, "Engineering", avatarUrl, 2, createdAt));
+
+    mockMvc
+        .perform(
+            post("/api/v1/room/group")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {"name":"Engineering","avatarUrl":"%s","initialMemberIds":["%s"]}
+                        """
+                        .formatted(avatarUrl, memberId))
+                .principal(authenticated(creatorId)))
+        .andExpect(status().isCreated())
+        .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+        .andExpect(jsonPath("$.groupId").value(groupId.toString()))
+        .andExpect(jsonPath("$.name").value("Engineering"))
+        .andExpect(jsonPath("$.avatarUrl").value(avatarUrl))
+        .andExpect(jsonPath("$.members").value(2))
+        .andExpect(jsonPath("$.createdAt").value(createdAt.toString()));
+
+    var captor = ArgumentCaptor.forClass(CreateGroupCommand.class);
+    verify(groupUseCase).handle(captor.capture());
+    assertThat(captor.getValue())
+        .satisfies(
+            command -> {
+              assertThat(command.creatorId()).isEqualTo(creatorId);
+              assertThat(command.name()).isEqualTo("Engineering");
+              assertThat(command.avatarUrl()).isEqualTo(avatarUrl);
+              assertThat(command.initialMemberIds()).containsExactly(memberId);
+            });
+  }
+
+  @Test
+  void createChannelRoomReturnsCreatedResponseShape() throws Exception {
+    var creatorId = UUID.randomUUID();
+    var memberId = UUID.randomUUID();
+    var channelId = UUID.randomUUID();
+    var createdAt = Instant.parse("2026-06-30T10:00:00Z");
+    var avatarUrl = "https://cdn.example/channel.png";
+    when(channelUseCase.handle(any(CreateChannelCommand.class)))
+        .thenReturn(new CreateChannelResponse(channelId, "Announcements", avatarUrl, 2, createdAt));
+
+    mockMvc
+        .perform(
+            post("/api/v1/room/channel")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {"name":"Announcements","avatarUrl":"%s","initialMemberIds":["%s"]}
+                        """
+                        .formatted(avatarUrl, memberId))
+                .principal(authenticated(creatorId)))
+        .andExpect(status().isCreated())
+        .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+        .andExpect(jsonPath("$.channelId").value(channelId.toString()))
+        .andExpect(jsonPath("$.name").value("Announcements"))
+        .andExpect(jsonPath("$.avatarUrl").value(avatarUrl))
+        .andExpect(jsonPath("$.memberCount").value(2))
+        .andExpect(jsonPath("$.createdAt").value(createdAt.toString()));
+
+    var captor = ArgumentCaptor.forClass(CreateChannelCommand.class);
+    verify(channelUseCase).handle(captor.capture());
+    assertThat(captor.getValue())
+        .satisfies(
+            command -> {
+              assertThat(command.creatorId()).isEqualTo(creatorId);
+              assertThat(command.name()).isEqualTo("Announcements");
+              assertThat(command.avatarUrl()).isEqualTo(avatarUrl);
+              assertThat(command.initialMemberIds()).containsExactly(memberId);
+            });
+  }
+
+  @Test
   void createDirectRoomRejectsMissingRecipientId() throws Exception {
     mockMvc
         .perform(post("/api/v1/room/direct").contentType(MediaType.APPLICATION_JSON).content("{}"))
         .andExpect(status().isBadRequest());
 
     verifyNoInteractions(directRoomUseCase);
+  }
+
+  @Test
+  void createGroupRoomRejectsInvalidRequestPayloads() throws Exception {
+    var creatorId = UUID.randomUUID();
+
+    mockMvc
+        .perform(
+            post("/api/v1/room/group")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {"name":"  ","initialMemberIds":[]}
+                    """)
+                .principal(authenticated(creatorId)))
+        .andExpect(status().isBadRequest());
+    mockMvc
+        .perform(
+            post("/api/v1/room/group")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"name":"Engineering"}
+                    """)
+                .principal(authenticated(creatorId)))
+        .andExpect(status().isBadRequest());
+    mockMvc
+        .perform(
+            post("/api/v1/room/group")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {"name":"Engineering","avatarUrl":"not-a-url","initialMemberIds":[]}
+                    """)
+                .principal(authenticated(creatorId)))
+        .andExpect(status().isBadRequest());
+
+    verifyNoInteractions(groupUseCase);
+  }
+
+  @Test
+  void createChannelRoomRejectsInvalidRequestPayloads() throws Exception {
+    var creatorId = UUID.randomUUID();
+
+    mockMvc
+        .perform(
+            post("/api/v1/room/channel")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {"name":"  ","initialMemberIds":[]}
+                    """)
+                .principal(authenticated(creatorId)))
+        .andExpect(status().isBadRequest());
+    mockMvc
+        .perform(
+            post("/api/v1/room/channel")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"name":"Announcements"}
+                    """)
+                .principal(authenticated(creatorId)))
+        .andExpect(status().isBadRequest());
+    mockMvc
+        .perform(
+            post("/api/v1/room/channel")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {"name":"Announcements","avatarUrl":"not-a-url","initialMemberIds":[]}
+                    """)
+                .principal(authenticated(creatorId)))
+        .andExpect(status().isBadRequest());
+
+    verifyNoInteractions(channelUseCase);
   }
 
   @Test
@@ -201,6 +401,6 @@ class RoomCommandApiTest {
   }
 
   private static UsernamePasswordAuthenticationToken authenticated(UUID userId) {
-    return new UsernamePasswordAuthenticationToken(userId, null, List.of());
+    return new UsernamePasswordAuthenticationToken(userId.toString(), null, List.of());
   }
 }
