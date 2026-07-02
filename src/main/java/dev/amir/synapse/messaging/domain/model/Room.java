@@ -168,6 +168,7 @@ public final class Room extends AggregateRoot<RoomId, DomainEvent> {
   private static Room create(
       RoomType roomType, String name, String avatarUrl, Map<MemberId, RoomRole> roleAssignments) {
     var now = Instant.now();
+    var normalizedName = normalize(name);
 
     Set<RoomMember> initialMembers =
         roleAssignments.entrySet().stream()
@@ -175,7 +176,8 @@ public final class Room extends AggregateRoot<RoomId, DomainEvent> {
             .collect(Collectors.toSet());
 
     var snapshot =
-        createSnapshot(RoomId.generate(), roomType, name, avatarUrl, now, now, initialMembers);
+        createSnapshot(
+            RoomId.generate(), roomType, normalizedName, avatarUrl, now, now, initialMembers);
 
     RoomGuards.validateCreation(
         snapshot.roomType(), snapshot.name(), snapshot.avatarUrl(), memberIds(initialMembers));
