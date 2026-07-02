@@ -3,6 +3,7 @@ package dev.amir.synapse.messaging.infrastructure.adapter.in.web.rest;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -41,6 +42,21 @@ class RoomQueryApiTest {
   @MockitoBean private GetRoomByIdUseCase getRoomByIdUseCase;
 
   @MockitoBean private AuthenticateAccessTokenUseCase authenticateAccessTokenUseCase;
+
+  @Test
+  void inboxRejectsNegativePageWithoutCallingUseCase() throws Exception {
+    var userId = UUID.randomUUID();
+
+    mockMvc
+        .perform(get("/api/v1/room/inbox").param("page", "-1").principal(authenticated(userId)))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.title").value("Room request is invalid"))
+        .andExpect(jsonPath("$.status").value(400))
+        .andExpect(jsonPath("$.detail").value("The room request parameters are invalid."))
+        .andExpect(jsonPath("$.errorCode").value("ROOM_REQUEST_INVALID"));
+
+    verifyNoInteractions(listRoomInboxUseCase, getRoomByIdUseCase);
+  }
 
   @Test
   void inboxDefaultsToActiveRoomsWithFixedPageSize() throws Exception {
