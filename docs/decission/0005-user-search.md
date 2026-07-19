@@ -1,95 +1,45 @@
-# 5. User search
+# 5. Handle Discovery
 
 Date: 2026-07-02
 
 ## Status
 
-Accepted
+Accepted (amended 2026-07-19)
 
 ## Context
 
-Messaging needs user discovery so clients can start direct rooms and invite
-participants without exchanging private identifiers out of band.
-
-Identity currently has no public search contract. The only stable identifiers
-are internal UUIDs, Google IDs, and emails. ADR 0003 introduces a public handle;
-search should build on that handle rather than expose private identity fields.
-
-Search can become operationally expensive if introduced with a dedicated search
-engine too early. PostgreSQL is already the source of truth, already required by
-the application, and can serve handle prefix search for v1.
+Authenticated users need privacy-safe discovery for messaging. PostgreSQL is
+already the identity source of truth; Redis can reduce repeated prefix-query
+cost but must not become a correctness dependency.
 
 ## Decision
 
-Expose `UserSearchUseCase` through the Identity application contract.
+Expose authenticated Handle-prefix discovery at:
 
-For v1, search behavior is:
+`GET /api/v1/users/search?prefix=ami&page=0&size=20`
 
-- Search only by handle.
-- Case-insensitive prefix match.
-- PostgreSQL-backed.
-- Paginated.
-- Ordered deterministically by handle.
-- Returns public-safe fields only:
-  - user ID
-  - handle
-  - display name
-  - avatar/profile image URL
-- Never returns email, Google ID, refresh-token state, or other private identity
-  attributes.
+Prefixes are lowercased and must contain 1 through 32 Handle-alphabet
+characters without consecutive periods. Results are ordered by Handle and
+contain only `userId`, `handle`, `displayName`, and nullable
+`profilePictureUrl`. The envelope contains `items`, `page`, `size`, and
+`hasNext`.
 
-The use case lives behind an outbound `UserSearchPort`. PostgreSQL is the first
-adapter and remains the source of truth.
+The PostgreSQL JPA adapter selects a projection, requests `size + 1`, and uses
+the extra row to derive `hasNext` without a count query. Underscores are escaped
+in `LIKE` patterns so they remain literal; periods are naturally literal.
 
-ElasticSearch/OpenSearch is deferred to a later learning-goal item. If adopted,
-it must be a derived index behind the same port, not the source of truth. Index
-sync must be owned explicitly through domain events and a reindex/backfill path,
-and a later ADR must document the consistency model and operational cost.
-
-## Alternatives Considered
-
-### Search by email
-
-Rejected. Email is private identity data and must not be exposed through public
-discovery.
-
-### Search by display name
-
-Deferred. Display names are useful for presentation but ambiguous for v1
-discovery. Handle-only search gives a clear and testable baseline.
-
-### Use PostgreSQL trigram or fuzzy search immediately
-
-Deferred. Prefix search is simpler, easier to reason about, and sufficient for
-v1. Fuzzy search can be added after real usage demonstrates the need.
-
-### Adopt ElasticSearch/OpenSearch immediately
-
-Rejected for the baseline. A search engine adds operational cost and, more
-importantly, introduces index synchronization as a correctness concern. That is
-valuable to learn later, but PostgreSQL is the correct first implementation.
+Redis caches normalized slices for 60 seconds behind an application port. Keys
+include schema version, cache generation, prefix, page, and size. Successful
+user creation increments the generation atomically instead of scanning or
+deleting keys. Redis read, write, and generation failures are swallowed as
+cache misses, with PostgreSQL serving the request. Redis is never consulted for
+allocation or uniqueness.
 
 ## Consequences
 
-### Positive
-
-- Discovery starts with a simple, privacy-safe contract.
-- PostgreSQL remains the single source of truth.
-- The application boundary is ready for a future search-engine adapter without
-  coupling use cases to a specific backend.
-- Privacy expectations are explicit in the return shape.
-
-### Negative
-
-- Prefix-only search is less flexible than fuzzy or display-name search.
-- PostgreSQL-backed search may need additional indexing work as data grows.
-- A future search-engine adapter will require explicit index-sync design rather
-  than being a drop-in replacement.
-
-### Follow-up Work
-
-- Add the `UserSearchUseCase`, query, response DTOs, and outbound port.
-- Add the PostgreSQL adapter and web endpoint.
-- Add integration and web-slice tests proving pagination, prefix matching, and
-  privacy of returned fields.
-- Capture any future ElasticSearch/OpenSearch adoption in a dedicated ADR.
+- Discovery cannot expose email or Google subject by construction.
+- PostgreSQL remains available as the complete fallback during Redis outages.
+- Generation changes invalidate all previously cached search slices in O(1).
+- Mutable display-name/avatar changes can remain cached for at most the TTL.
+- A future jOOQ or search-engine adapter may replace the read implementation
+  behind the same port without changing the public contract.

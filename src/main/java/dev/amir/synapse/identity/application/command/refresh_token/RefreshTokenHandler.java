@@ -10,6 +10,7 @@ import dev.amir.synapse.identity.domain.port.in.refresh_token.RefreshTokenComman
 import dev.amir.synapse.identity.domain.port.in.refresh_token.RefreshTokenResult;
 import dev.amir.synapse.identity.domain.port.in.refresh_token.RefreshTokenUseCase;
 import java.time.Duration;
+import org.jspecify.annotations.NonNull;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,7 +39,7 @@ public class RefreshTokenHandler implements RefreshTokenUseCase {
 
   @Transactional
   @Override
-  public RefreshTokenResult handle(RefreshTokenCommand command) {
+  public @NonNull RefreshTokenResult handle(RefreshTokenCommand command) {
     var hash = RefreshToken.hash(command.refreshToken());
 
     var existing =

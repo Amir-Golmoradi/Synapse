@@ -4,7 +4,7 @@ Date: 2026-07-08
 
 ## Status
 
-Accepted
+Accepted (amended 2026-07-19)
 
 ## Context
 
@@ -38,8 +38,10 @@ Use JPA and jOOQ together, with clear adapter responsibilities.
 
 - JPA remains the preferred tool for aggregate persistence and write-model
   adapters.
-- jOOQ is introduced for read-model, projection, search, and reporting-style
-  adapters where explicit SQL is the better fit.
+- JPA projections remain appropriate for bounded read models where they are
+  clear and efficient. The first Handle-prefix search uses this path.
+- jOOQ may be introduced for read-model, projection, search, and
+  reporting-style adapters where explicit SQL provides a material advantage.
 - Flyway remains the single owner of the database schema.
 - Domain code must not import JPA, jOOQ, JDBC, Spring persistence APIs, or
   generated database classes.
@@ -52,8 +54,9 @@ Use JPA and jOOQ together, with clear adapter responsibilities.
 The intended split is:
 
 - JPA: load/save aggregates such as users, refresh tokens, and rooms.
-- jOOQ: list/search/read projections such as room inbox summaries, user search
-  results, reporting views, and future dashboard/admin queries.
+- JPA projections: simple bounded reads such as initial Handle-prefix search.
+- jOOQ: more SQL-intensive list/search/reporting views when introduced through
+  a dedicated build and adapter change.
 
 The first jOOQ use should be a read-model adapter, not a replacement for an
 existing aggregate write adapter.
@@ -135,7 +138,7 @@ authority is what allows multiple persistence adapters to coexist safely.
 
 - Add jOOQ build support in a dedicated build-focused PR.
 - Decide and document the code-generation workflow before binding it to Maven.
-- Convert one read-model adapter to jOOQ first, preferably a room summary or
-  user-search projection.
+- Convert one read-model adapter to jOOQ first, preferably a room summary; the
+  Handle search remains JPA-backed until a measured need justifies replacement.
 - Keep aggregate write adapters on JPA unless a separate ADR justifies changing
   that boundary.

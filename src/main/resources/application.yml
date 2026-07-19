@@ -28,6 +28,12 @@ spring:
     locations:
       - classpath:db/create-table
       - classpath:db/alter-table
+  data:
+    redis:
+      connect-timeout: 200ms
+      timeout: 200ms
+      repositories:
+        enabled: false
 springdoc:
   api-docs:
     path: /v3/api-docs

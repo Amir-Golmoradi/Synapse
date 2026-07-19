@@ -64,6 +64,6 @@ class CreateGroupHandlerTest {
   }
 
   private static UserLookupResult lookupResult(UUID userId) {
-    return new UserLookupResult(userId, "User " + userId, null);
+    return new UserLookupResult(userId, "user_" + userId, "User " + userId, null);
   }
 }

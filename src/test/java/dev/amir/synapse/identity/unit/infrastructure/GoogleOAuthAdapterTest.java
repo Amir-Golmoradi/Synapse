@@ -8,8 +8,8 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
-import dev.amir.synapse.identity.infrastructure.adapter.out.google.GoogleOAuthAdapter;
-import dev.amir.synapse.identity.infrastructure.exception.InvalidGoogleTokenException;
+import dev.amir.synapse.identity.application.exception.OidcVerificationException;
+import dev.amir.synapse.identity.infrastructure.adapter.out.oauth.google.GoogleOAuthAdapter;
 import java.time.Instant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -38,7 +38,7 @@ class GoogleOAuthAdapterTest {
   }
 
   @Test
-  void verifyIdTokenReturnsGoogleUserInfoWhenTokenInfoIsValid() {
+  void verifyIdTokenReturnsVerifiedGoogleProfileWhenTokenInfoIsValid() {
     var expiresAt = Instant.now().plusSeconds(300).getEpochSecond();
     googleServer
         .expect(once(), requestTo("https://oauth2.googleapis.com/tokeninfo?id_token=valid-token"))
@@ -60,13 +60,13 @@ class GoogleOAuthAdapterTest {
                     .formatted(expiresAt),
                 MediaType.APPLICATION_JSON));
 
-    var userInfo = adapter.verifyIdToken("valid-token");
+    var profile = adapter.verifyIdToken("valid-token");
 
-    assertThat(userInfo.googleId()).isEqualTo("google-user-123");
-    assertThat(userInfo.email().getValue()).isEqualTo("user@example.com");
-    assertThat(userInfo.fullName().getFirstName()).isEqualTo("Amir");
-    assertThat(userInfo.fullName().getLastName()).isEqualTo("Gm");
-    assertThat(userInfo.profilePictureUrl()).isEqualTo("https://example.com/avatar.png");
+    assertThat(profile.provider()).isEqualTo("google");
+    assertThat(profile.subjectId()).isEqualTo("google-user-123");
+    assertThat(profile.email().getValue()).isEqualTo("user@example.com");
+    assertThat(profile.displayName().getValue()).isEqualTo("Amir Gm");
+    assertThat(profile.profilePictureUrl()).isEqualTo("https://example.com/avatar.png");
     googleServer.verify();
   }
 
@@ -90,7 +90,7 @@ class GoogleOAuthAdapterTest {
             .formatted(expiresAt));
 
     assertThatThrownBy(() -> adapter.verifyIdToken("wrong-audience-token"))
-        .isInstanceOf(InvalidGoogleTokenException.class)
+        .isInstanceOf(OidcVerificationException.class)
         .hasMessage("Google token audience mismatch");
 
     googleServer.verify();
@@ -117,7 +117,7 @@ class GoogleOAuthAdapterTest {
             .formatted(expiresAt));
 
     assertThatThrownBy(() -> adapter.verifyIdToken("missing-subject-token"))
-        .isInstanceOf(InvalidGoogleTokenException.class)
+        .isInstanceOf(OidcVerificationException.class)
         .hasMessage("Google token subject is missing");
 
     googleServer.verify();
@@ -144,7 +144,7 @@ class GoogleOAuthAdapterTest {
             .formatted(expiresAt));
 
     assertThatThrownBy(() -> adapter.verifyIdToken("missing-email-token"))
-        .isInstanceOf(InvalidGoogleTokenException.class)
+        .isInstanceOf(OidcVerificationException.class)
         .hasMessage("Google token email is missing");
 
     googleServer.verify();
@@ -168,7 +168,7 @@ class GoogleOAuthAdapterTest {
         """);
 
     assertThatThrownBy(() -> adapter.verifyIdToken("missing-expiration-token"))
-        .isInstanceOf(InvalidGoogleTokenException.class)
+        .isInstanceOf(OidcVerificationException.class)
         .hasMessage("Google token has expired");
 
     googleServer.verify();
@@ -195,7 +195,7 @@ class GoogleOAuthAdapterTest {
             .formatted(expiresAt));
 
     assertThatThrownBy(() -> adapter.verifyIdToken("unverified-email-token"))
-        .isInstanceOf(InvalidGoogleTokenException.class)
+        .isInstanceOf(OidcVerificationException.class)
         .hasMessage("Google token email verification failed");
 
     googleServer.verify();
@@ -222,7 +222,7 @@ class GoogleOAuthAdapterTest {
             .formatted(expiredAt));
 
     assertThatThrownBy(() -> adapter.verifyIdToken("expired-token"))
-        .isInstanceOf(InvalidGoogleTokenException.class)
+        .isInstanceOf(OidcVerificationException.class)
         .hasMessage("Google token has expired");
 
     googleServer.verify();
@@ -236,7 +236,7 @@ class GoogleOAuthAdapterTest {
         .andRespond(withStatus(HttpStatus.NO_CONTENT));
 
     assertThatThrownBy(() -> adapter.verifyIdToken("empty-response"))
-        .isInstanceOf(InvalidGoogleTokenException.class)
+        .isInstanceOf(OidcVerificationException.class)
         .hasMessage("Google token response is empty");
 
     googleServer.verify();
@@ -259,13 +259,13 @@ class GoogleOAuthAdapterTest {
         """
             .formatted(expiresAt));
 
-    var userInfo = adapter.verifyIdToken("missing-optional-profile-claims");
+    var profile = adapter.verifyIdToken("missing-optional-profile-claims");
 
-    assertThat(userInfo.googleId()).isEqualTo("google-user-123");
-    assertThat(userInfo.email().getValue()).isEqualTo("user@example.com");
-    assertThat(userInfo.fullName().getFirstName()).isEmpty();
-    assertThat(userInfo.fullName().getLastName()).isEmpty();
-    assertThat(userInfo.profilePictureUrl()).isNull();
+    assertThat(profile.provider()).isEqualTo("google");
+    assertThat(profile.subjectId()).isEqualTo("google-user-123");
+    assertThat(profile.email().getValue()).isEqualTo("user@example.com");
+    assertThat(profile.displayName().getValue()).isEqualTo("Google User");
+    assertThat(profile.profilePictureUrl()).isNull();
     googleServer.verify();
   }
 
@@ -276,7 +276,7 @@ class GoogleOAuthAdapterTest {
         .andRespond(withServerError());
 
     assertThatThrownBy(() -> adapter.verifyIdToken("google-down"))
-        .isInstanceOf(InvalidGoogleTokenException.class)
+        .isInstanceOf(OidcVerificationException.class)
         .hasMessage("Google token verification failed")
         .hasCauseInstanceOf(Exception.class);
 
