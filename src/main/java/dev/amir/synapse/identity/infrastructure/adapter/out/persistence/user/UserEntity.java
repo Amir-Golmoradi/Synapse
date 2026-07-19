@@ -1,45 +1,57 @@
 package dev.amir.synapse.identity.infrastructure.adapter.out.persistence.user;
 
+import dev.amir.synapse.identity.domain.value_object.Email;
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import java.time.Instant;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 @Entity
-@Table(name = "users")
+@Table(
+    name = "users",
+    uniqueConstraints = {
+      @UniqueConstraint(name = "uq_user_handle", columnNames = "handle"),
+      @UniqueConstraint(name = "uq_user_email", columnNames = "email"),
+      @UniqueConstraint(name = "uq_user_google_id", columnNames = "google_id"),
+    })
 public class UserEntity {
 
   @Id UUID id;
 
-  @Column(nullable = false, unique = true)
+  @Column(name = "google_id", nullable = false, length = 64)
   String googleId;
 
-  @Column(nullable = false, unique = true)
-  String email;
+  @Convert(converter = EmailAttributeConverter.class)
+  @Column(nullable = false, length = 255)
+  Email email;
 
-  @Column(nullable = false)
-  String firstName;
+  @Column(name = "display_name", nullable = false, length = 32)
+  String displayName;
 
-  @Column(nullable = false)
-  String lastName;
+  @Column(nullable = false, length = 32)
+  String handle;
 
-  @Column String profilePictureUrl;
+  @Column(name = "profile_picture_url")
+  @Nullable String profilePictureUrl;
 
-  @Column(nullable = false, updatable = false)
+  @Column(name = "created_at", nullable = false, updatable = false)
   Instant createdAt;
 
-  @Column(nullable = false)
+  @Column(name = "updated_at", nullable = false)
   Instant updatedAt;
 
   public UUID getId() {
     return id;
   }
 
-  public String getEmail() {
+  public Email getEmail() {
     return email;
   }
 
@@ -47,12 +59,12 @@ public class UserEntity {
     return googleId;
   }
 
-  public String getFirstName() {
-    return firstName;
+  public String getDisplayName() {
+    return displayName;
   }
 
-  public String getLastName() {
-    return lastName;
+  public String getHandle() {
+    return handle;
   }
 
   public Instant getCreatedAt() {
@@ -63,8 +75,13 @@ public class UserEntity {
     return updatedAt;
   }
 
-  public String getProfilePictureUrl() {
+  public @Nullable String getProfilePictureUrl() {
     return profilePictureUrl;
+  }
+
+  void updateProfile(String updatedDisplayName, @Nullable String updatedProfilePictureUrl) {
+    displayName = updatedDisplayName;
+    profilePictureUrl = updatedProfilePictureUrl;
   }
 
   @PrePersist

@@ -1,10 +1,12 @@
 package dev.amir.synapse.identity.domain.exception;
 
 import dev.amir.synapse.shared.domain.DomainException;
+import java.io.Serial;
 
 public final class InvalidEmailFormatException extends DomainException {
-  private static final long serialVersionUID = 1L;
-  private static final String MESSAGE = "Email format is not valid";
+  @Serial private static final long serialVersionUID = 1L;
+  private static final String MESSAGE =
+      "Email address must use a valid address format such as name@example.com.";
 
   public InvalidEmailFormatException() {
     super(MESSAGE);

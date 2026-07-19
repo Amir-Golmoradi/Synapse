@@ -3,19 +3,9 @@ package dev.amir.synapse.messaging.domain.value_object;
 import dev.amir.synapse.messaging.domain.enums.RoomRole;
 import dev.amir.synapse.shared.domain.ValueObject;
 import java.time.Instant;
-import java.util.List;
 
-public class RoomMember extends ValueObject {
-  private final MemberId memberId;
-  private final RoomRole role;
-  private final Instant joinedAt;
-
-  private RoomMember(MemberId memberId, RoomRole role, Instant joinedAt) {
-    this.memberId = memberId;
-    this.role = role;
-    this.joinedAt = joinedAt;
-  }
-
+public record RoomMember(MemberId memberId, RoomRole role, Instant joinedAt)
+    implements ValueObject {
   public static RoomMember create(MemberId memberId, RoomRole role, Instant joinedAt) {
     return new RoomMember(memberId, role, joinedAt);
   }
@@ -42,10 +32,5 @@ public class RoomMember extends ValueObject {
 
   public Instant getJoinedAt() {
     return joinedAt;
-  }
-
-  @Override
-  public List<Object> getAtomicValues() {
-    return List.of(memberId, role, joinedAt);
   }
 }

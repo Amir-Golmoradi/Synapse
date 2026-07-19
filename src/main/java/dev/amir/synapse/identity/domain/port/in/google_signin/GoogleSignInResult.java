@@ -4,8 +4,8 @@ import org.jspecify.annotations.Nullable;
 
 public record GoogleSignInResult(
     String id,
+    String handle,
     String accessToken,
     String refreshToken,
-    String firstName,
-    String lastName,
+    String displayName,
     @Nullable String profilePictureUrl) {}

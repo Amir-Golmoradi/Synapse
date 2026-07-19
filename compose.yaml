@@ -23,11 +23,9 @@ services:
       JWT_SECRET: ${JWT_SECRET}
     networks:
       - synapse-network
-    # Prevents startup crashing by waiting for database health checks to clear
+    # PostgreSQL is a correctness dependency; Redis is intentionally optional and fail-open.
     depends_on:
       synapse-database:
-        condition: service_healthy
-      synapse-cache:
         condition: service_healthy
 
   synapse-database:
