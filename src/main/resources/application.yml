@@ -45,6 +45,8 @@ springdoc:
 
 synapse:
   google-token-url: ${GOOGLE_TOKEN_INFO_URL}
+  websocket:
+    allowed-origins: ${SYNAPSE_WEBSOCKET_ALLOWED_ORIGINS:}
   jwt:
     secret: ${JWT_SECRET}
     token-expiration-ms: 900000          # 15 minutes — short-lived
