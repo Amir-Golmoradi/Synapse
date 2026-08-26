@@ -3,7 +3,7 @@
   "extends": [
     "config:recommended"
   ],
-  "baseBranches": [
+  "baseBranchPatterns": [
     "develop"
   ],
   "branchPrefix": "chore/update-",
@@ -20,11 +20,11 @@
         "minor",
         "patch"
       ],
-      "matchPackagePatterns": [
-        "*"
-      ],
       "groupName": "all minor and patch dependencies",
-      "commitMessageTopic": "non-major dependencies"
+      "commitMessageTopic": "non-major dependencies",
+      "matchPackageNames": [
+        "*"
+      ]
     }
   ]
 }
