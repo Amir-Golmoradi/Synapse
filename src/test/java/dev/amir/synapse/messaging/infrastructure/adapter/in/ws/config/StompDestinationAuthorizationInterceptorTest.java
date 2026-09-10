@@ -7,6 +7,8 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import dev.amir.synapse.messaging.domain.port.out.LoadRoomPort;
+import dev.amir.synapse.shared.websocket.config.StompClientErrorSender;
+import dev.amir.synapse.shared.websocket.config.StompDestinationAuthorizationInterceptor;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -25,7 +27,8 @@ class StompDestinationAuthorizationInterceptorTest {
   private final StompClientErrorSender errorSender = mock(StompClientErrorSender.class);
   private final MessageChannel channel = mock(MessageChannel.class);
   private final StompDestinationAuthorizationInterceptor interceptor =
-      new StompDestinationAuthorizationInterceptor(loadRoomPort, errorSender);
+      new StompDestinationAuthorizationInterceptor(
+          List.of(new MessagingStompDestinationPolicy(loadRoomPort)), errorSender);
 
   @Test
   void allowsOnlyTheApplicationRoomMessageDestinationForSend() {

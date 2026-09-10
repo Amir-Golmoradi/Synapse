@@ -7,6 +7,11 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import dev.amir.synapse.shared.websocket.config.SanitizedStompErrorHandler;
+import dev.amir.synapse.shared.websocket.config.StompAuthChannelInterceptor;
+import dev.amir.synapse.shared.websocket.config.StompDestinationAuthorizationInterceptor;
+import dev.amir.synapse.shared.websocket.config.WebSocketConfig;
+import dev.amir.synapse.shared.websocket.config.WebSocketProperties;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -14,6 +19,8 @@ import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.simp.config.ChannelRegistration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
+import org.springframework.messaging.simp.config.SimpleBrokerRegistration;
+import org.springframework.scheduling.TaskScheduler;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.StompWebSocketEndpointRegistration;
 
@@ -71,6 +78,10 @@ class WebSocketConfigTest {
   @Test
   void configuresTheSimpleBrokerAndOrderedPublication() {
     var brokerRegistry = mock(MessageBrokerRegistry.class);
+    var broker = mock(SimpleBrokerRegistration.class);
+    when(brokerRegistry.enableSimpleBroker("/topic", "/queue")).thenReturn(broker);
+    when(broker.setHeartbeatValue(org.mockito.ArgumentMatchers.any(long[].class)))
+        .thenReturn(broker);
 
     config(new WebSocketProperties(List.of())).configureMessageBroker(brokerRegistry);
 
@@ -120,7 +131,10 @@ class WebSocketConfigTest {
   }
 
   private WebSocketConfig config(WebSocketProperties properties) {
-    return new WebSocketConfig(authInterceptor, destinationInterceptor, errorHandler, properties);
+    var config =
+        new WebSocketConfig(authInterceptor, destinationInterceptor, errorHandler, properties);
+    config.setTaskScheduler(mock(TaskScheduler.class));
+    return config;
   }
 
   @Configuration(proxyBeanMethods = false)

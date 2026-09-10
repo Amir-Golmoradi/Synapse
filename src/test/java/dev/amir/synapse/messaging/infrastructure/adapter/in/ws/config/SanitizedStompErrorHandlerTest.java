@@ -2,6 +2,7 @@ package dev.amir.synapse.messaging.infrastructure.adapter.in.ws.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import dev.amir.synapse.shared.websocket.config.SanitizedStompErrorHandler;
 import org.junit.jupiter.api.Test;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.simp.stomp.StompCommand;

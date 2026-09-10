@@ -22,7 +22,7 @@ import org.springframework.test.web.servlet.MockMvc;
 @WebMvcTest(
     value = MessageQueryApi.class,
     excludeAutoConfiguration = OAuth2ClientAutoConfiguration.class)
-@Import({SecurityConfig.class, MessagingCorsConfig.class})
+@Import({SecurityConfig.class, dev.amir.synapse.shared.config.ApiCorsConfig.class})
 @TestPropertySource(properties = "synapse.websocket.allowed-origins=https://app.example")
 class MessageHistoryCorsSecurityTest {
   private static final String HISTORY_PATH =

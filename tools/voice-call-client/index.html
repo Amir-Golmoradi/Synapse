@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Synapse voice call harness</title>
+    <style>
+      body { font: 16px system-ui; max-width: 760px; margin: 2rem auto; padding: 0 1rem; }
+      label { display: block; margin: .75rem 0; }
+      input { width: 100%; box-sizing: border-box; padding: .5rem; }
+      button { margin: .3rem; padding: .55rem .8rem; }
+      pre { min-height: 12rem; background: #111; color: #ddd; padding: 1rem; overflow: auto; }
+    </style>
+  </head>
+  <body>
+    <h1>Synapse voice call harness</h1>
+    <label>HTTP base URL <input id="httpUrl" value="http://localhost:8080" /></label>
+    <label>WebSocket URL <input id="wsUrl" value="ws://localhost:8080/ws" /></label>
+    <label>Synapse access token <input id="token" type="password" /></label>
+    <label>Callee user UUID <input id="calleeId" /></label>
+    <div>
+      <button id="connect">Connect</button>
+      <button id="start" disabled>Start</button>
+      <button id="accept" disabled>Accept</button>
+      <button id="reject" disabled>Reject</button>
+      <button id="end" disabled>End</button>
+    </div>
+    <audio id="remoteAudio" autoplay></audio>
+    <pre id="log"></pre>
+    <script src="./node_modules/@stomp/stompjs/bundles/stomp.umd.min.js"></script>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

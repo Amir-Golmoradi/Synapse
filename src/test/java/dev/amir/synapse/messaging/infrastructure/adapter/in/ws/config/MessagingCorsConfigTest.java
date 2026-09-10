@@ -2,6 +2,8 @@ package dev.amir.synapse.messaging.infrastructure.adapter.in.ws.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import dev.amir.synapse.shared.config.ApiCorsConfig;
+import dev.amir.synapse.shared.websocket.config.WebSocketProperties;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -11,7 +13,7 @@ class MessagingCorsConfigTest {
   @Test
   void allowsOnlyHistoryReadsFromExplicitMessagingOrigins() {
     var source =
-        new MessagingCorsConfig()
+        new ApiCorsConfig()
             .corsConfigurationSource(
                 new WebSocketProperties(List.of("https://app.example", "https://admin.example")));
     var historyRequest =
@@ -24,7 +26,8 @@ class MessagingCorsConfigTest {
     assertThat(configuration.getAllowedOrigins())
         .containsExactly("https://app.example", "https://admin.example");
     assertThat(configuration.getAllowedMethods()).containsExactly("GET");
-    assertThat(configuration.getAllowedHeaders()).containsExactly("Authorization");
+    assertThat(configuration.getAllowedHeaders())
+        .containsExactly("Authorization", "Content-Type", "X-Request-ID");
     assertThat(configuration.getMaxAge()).isEqualTo(3600L);
     assertThat(
             source.getCorsConfiguration(
@@ -34,8 +37,7 @@ class MessagingCorsConfigTest {
 
   @Test
   void emptyAllowlistLeavesHistorySameOriginOnly() {
-    var source =
-        new MessagingCorsConfig().corsConfigurationSource(new WebSocketProperties(List.of()));
+    var source = new ApiCorsConfig().corsConfigurationSource(new WebSocketProperties(List.of()));
 
     assertThat(
             source.getCorsConfiguration(

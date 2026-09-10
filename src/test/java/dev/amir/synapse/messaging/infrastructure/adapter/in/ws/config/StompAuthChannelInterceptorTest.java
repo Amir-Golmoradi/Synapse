@@ -6,9 +6,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import dev.amir.synapse.identity.domain.port.in.access_token.AuthenticateAccessTokenQuery;
-import dev.amir.synapse.identity.domain.port.in.access_token.AuthenticateAccessTokenUseCase;
-import dev.amir.synapse.identity.domain.value_object.UserId;
+import dev.amir.synapse.shared.websocket.api.StompAuthenticator;
+import dev.amir.synapse.shared.websocket.config.StompAuthChannelInterceptor;
+import dev.amir.synapse.shared.websocket.config.StompClientErrorSender;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -24,8 +24,7 @@ import org.springframework.messaging.support.MessageHeaderAccessor;
 
 class StompAuthChannelInterceptorTest {
 
-  private final AuthenticateAccessTokenUseCase authenticateAccessToken =
-      mock(AuthenticateAccessTokenUseCase.class);
+  private final StompAuthenticator authenticateAccessToken = mock(StompAuthenticator.class);
   private final StompClientErrorSender errorSender = mock(StompClientErrorSender.class);
   private final MessageChannel channel = mock(MessageChannel.class);
   private final StompAuthChannelInterceptor interceptor =
@@ -40,8 +39,7 @@ class StompAuthChannelInterceptorTest {
     var accessor = accessor(command);
     accessor.setNativeHeader(HttpHeaders.AUTHORIZATION, "Bearer access-token");
     var message = message(accessor);
-    when(authenticateAccessToken.handle(new AuthenticateAccessTokenQuery("access-token")))
-        .thenReturn(Optional.of(new UserId(userId)));
+    when(authenticateAccessToken.authenticate("access-token")).thenReturn(Optional.of(userId));
 
     var result = interceptor.preSend(message, channel);
 
@@ -51,7 +49,7 @@ class StompAuthChannelInterceptorTest {
     assertThat(accessor.getUser()).isNotNull();
     assertThat(accessor.getUser().getName()).isEqualTo(userId.toString());
     assertThat(accessor.getFirstNativeHeader(HttpHeaders.AUTHORIZATION)).isNull();
-    verify(authenticateAccessToken).handle(new AuthenticateAccessTokenQuery("access-token"));
+    verify(authenticateAccessToken).authenticate("access-token");
   }
 
   @Test
@@ -69,8 +67,7 @@ class StompAuthChannelInterceptorTest {
     var accessor = accessor(StompCommand.CONNECT);
     accessor.setNativeHeader(HttpHeaders.AUTHORIZATION, "Bearer sensitive-token");
     var message = message(accessor);
-    when(authenticateAccessToken.handle(new AuthenticateAccessTokenQuery("sensitive-token")))
-        .thenReturn(Optional.empty());
+    when(authenticateAccessToken.authenticate("sensitive-token")).thenReturn(Optional.empty());
 
     assertThat(interceptor.preSend(message, channel)).isNull();
     assertThat(accessor.getFirstNativeHeader(HttpHeaders.AUTHORIZATION)).isNull();
