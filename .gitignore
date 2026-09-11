@@ -32,6 +32,7 @@ build/
 ### VS Code ###
 .vscode/
 .env
+tools/voice-call-client/node_modules/
 docs/claude-context.md
 docs/claude-session-prompt.md
 ROADMAP.md

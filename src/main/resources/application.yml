@@ -47,6 +47,13 @@ synapse:
   google-token-url: ${GOOGLE_TOKEN_INFO_URL}
   websocket:
     allowed-origins: ${SYNAPSE_WEBSOCKET_ALLOWED_ORIGINS:}
+  call:
+    ringing-timeout: ${SYNAPSE_CALL_RINGING_TIMEOUT:45s}
+    connection-timeout: ${SYNAPSE_CALL_CONNECTION_TIMEOUT:30s}
+    recovery-timeout: ${SYNAPSE_CALL_RECOVERY_TIMEOUT:30s}
+    liveness-lease: ${SYNAPSE_CALL_LIVENESS_LEASE:30s}
+    timeout-sweep: ${SYNAPSE_CALL_TIMEOUT_SWEEP:1s}
+    timeout-batch-size: ${SYNAPSE_CALL_TIMEOUT_BATCH_SIZE:100}
   jwt:
     secret: ${JWT_SECRET}
     token-expiration-ms: 900000          # 15 minutes — short-lived

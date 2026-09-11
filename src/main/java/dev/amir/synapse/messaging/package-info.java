@@ -4,6 +4,7 @@
       "identity :: identity-access-token",
       "identity :: identity-value-object",
       "shared :: shared-domain",
+      "shared :: shared-websocket",
       "identity",
       "shared"
     })

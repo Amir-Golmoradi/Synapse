@@ -1,0 +1,13 @@
+{
+  "name": "synapse-voice-call-client",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "serve": "python3 -m http.server 5173",
+    "test": "node --test call-session.test.js"
+  },
+  "dependencies": {
+    "@stomp/stompjs": "7.3.0"
+  }
+}

@@ -60,6 +60,7 @@ It is not currently presented as a production SaaS. The goal is to build and doc
 - Room membership validation through the Identity bounded context
 - Command/query separation for room creation and room retrieval
 - PostgreSQL persistence
+- One-to-one voice-call lifecycle, refresh recovery, and private WebRTC signaling
 - Automated formatting and static-analysis checks
 
 ### In Progress
@@ -67,7 +68,7 @@ It is not currently presented as a production SaaS. The goal is to build and doc
 - Real-time message delivery over WebSocket
 - Message persistence, acknowledgement, and delivery state
 - Redis-backed presence tracking
-- WebRTC offer, answer, and ICE-candidate signaling
+- Production client integration for the implemented one-to-one voice-call signaling protocol
 - Domain-event publication between bounded contexts
 - Broader integration and reliability testing
 
@@ -79,7 +80,7 @@ It is not currently presented as a production SaaS. The goal is to build and doc
 |---|---|---|
 | `identity` | Google authentication, user provisioning, Synapse token lifecycle, and internal user lookup | Implemented |
 | `messaging` | Rooms, memberships, messaging commands, and room queries | Room domain implemented; real-time delivery in progress |
-| `call` | Voice and video signaling through WebRTC | In progress |
+| `call` | One-to-one voice-call lifecycle, recovery, and WebRTC signaling | Implemented |
 | `presence` | Ephemeral user and session availability backed by Redis | In progress |
 | `shared` | Carefully limited cross-cutting primitives and technical support | Available |
 
@@ -161,7 +162,7 @@ flowchart LR
 | Consumer    | Provider   | Purpose                                                   | State       |
 |-------------|------------|-----------------------------------------------------------|-------------|
 | `messaging` | `identity` | Validate room members and resolve public user information | Implemented |
-| `call`      | `identity` | Validate call participants                                | Planned     |
+| `call`      | `identity` | Validate call participants                                | Implemented |
 | `messaging` | `presence` | Read participant availability                             | Planned     |
 | `call`      | `presence` | Coordinate call availability and session state            | Planned     |
 
@@ -636,6 +637,8 @@ The Maven initialization step links the repository's pre-commit hook into `.git/
 - Synapse is currently deployed as a modular monolith.
 - Native WebSocket/STOMP delivery is available for the single-instance deployment model.
 - WebRTC media does not pass through Synapse; the backend is intended to coordinate signaling.
+- Internet-reliable voice calling requires a separately operated TURN service.
+- Voice-call notification delivery is best effort; clients reconcile through `GET /api/v1/calls/current`.
 - TURN infrastructure is not included.
 - Presence consistency across multiple application instances is not complete.
 - The repository is intended for engineering demonstration and local development, not public production deployment in its current state.
