@@ -29,7 +29,9 @@ FROM eclipse-temurin:21.0.12_8-jre-alpine AS runtime
 WORKDIR /app
 
 RUN addgroup -S synapse \
-    && adduser -S synapse -G synapse
+    && adduser -S synapse -G synapse \
+    && mkdir -p /var/lib/synapse/voice-messages \
+    && chown -R synapse:synapse /var/lib/synapse
 
 COPY --from=builder --chown=synapse:synapse /app/target/*.jar ./app.jar
 

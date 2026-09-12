@@ -27,12 +27,36 @@ class MessagingCorsConfigTest {
         .containsExactly("https://app.example", "https://admin.example");
     assertThat(configuration.getAllowedMethods()).containsExactly("GET");
     assertThat(configuration.getAllowedHeaders())
-        .containsExactly("Authorization", "Content-Type", "X-Request-ID");
+        .containsExactly("Authorization", "Content-Type", "Range", "X-Request-ID");
     assertThat(configuration.getMaxAge()).isEqualTo(3600L);
     assertThat(
             source.getCorsConfiguration(
                 new MockHttpServletRequest("GET", "/api/v1/room/111/messages/other")))
         .isNull();
+  }
+
+  @Test
+  void configuresVoiceUploadAndPlaybackWithoutBroadeningOtherRoutes() {
+    var source =
+        new ApiCorsConfig()
+            .corsConfigurationSource(new WebSocketProperties(List.of("https://app.example")));
+    var upload =
+        source.getCorsConfiguration(
+            new MockHttpServletRequest(
+                "POST", "/api/v1/room/11111111-1111-1111-1111-111111111111/messages/voice"));
+    var playback =
+        source.getCorsConfiguration(
+            new MockHttpServletRequest(
+                "GET",
+                "/api/v1/room/11111111-1111-1111-1111-111111111111/messages/22222222-2222-2222-2222-222222222222/media"));
+
+    assertThat(upload).isNotNull();
+    assertThat(upload.getAllowedMethods()).containsExactly("POST");
+    assertThat(playback).isNotNull();
+    assertThat(playback.getAllowedMethods()).containsExactly("GET", "HEAD");
+    assertThat(playback.getAllowedHeaders()).contains("Authorization", "Range");
+    assertThat(playback.getExposedHeaders())
+        .contains("Accept-Ranges", "Content-Range", "Content-Length", "Content-Disposition");
   }
 
   @Test

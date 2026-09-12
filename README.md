@@ -60,6 +60,7 @@ It is not currently presented as a production SaaS. The goal is to build and doc
 - Room membership validation through the Identity bounded context
 - Command/query separation for room creation and room retrieval
 - PostgreSQL persistence
+- Typed text and voice messages with private authenticated media playback
 - One-to-one voice-call lifecycle, refresh recovery, and private WebRTC signaling
 - Automated formatting and static-analysis checks
 
@@ -502,7 +503,7 @@ export function sendMessage(text, clientMessageId = crypto.randomUUID()) {
 }
 ```
 
-The server persists a message before publishing this canonical payload:
+The server persists a message before publishing this canonical text payload:
 
 ```json
 {
@@ -510,12 +511,16 @@ The server persists a message before publishing this canonical payload:
   "roomId": "uuid",
   "senderId": "uuid",
   "clientMessageId": "uuid",
+  "type": "TEXT",
   "text": "message text",
+  "voice": null,
   "createdAt": "2026-08-13T10:00:00Z"
 }
 ```
 
-Messages are text-only and limited to 4,096 Unicode code points. Active members may
+Text messages are limited to 4,096 Unicode code points. Voice messages use authenticated
+multipart HTTP for upload and the same canonical room topic for delivery; see
+[`docs/voice-messages.md`](docs/voice-messages.md) for the upload and playback contract. Active members may
 send in direct and group rooms; channels accept sends only from owners and admins.
 Members of archived rooms may read history but cannot send or subscribe. Live delivery
 is best-effort, so use REST history to recover committed messages after a gap. Configure
@@ -650,6 +655,7 @@ The Maven initialization step links the repository's pre-commit hook into `.git/
 In-depth guides live in the [`docs/`](docs/) directory:
 
 - **[Configuration & Profiles](docs/configuration.md)** — how configuration and Spring profiles work, and how to run each environment.
+- **[Voice Messages](docs/voice-messages.md)** — authenticated upload, delivery, retry, storage, and playback.
 - **[Architecture Decision Records](docs/adr/)** — the reasoning behind key technical decisions.
 - **[Contributing Guide](CONTRIBUTING.md)** — branching, commits, pull requests, and the rules of the project.
 

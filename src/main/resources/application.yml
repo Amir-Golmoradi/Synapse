@@ -34,6 +34,10 @@ spring:
       timeout: 200ms
       repositories:
         enabled: false
+  servlet:
+    multipart:
+      max-file-size: ${SYNAPSE_VOICE_MAX_FILE_SIZE:16MB}
+      max-request-size: ${SYNAPSE_VOICE_MAX_REQUEST_SIZE:17MB}
 springdoc:
   api-docs:
     path: /v3/api-docs
@@ -54,6 +58,12 @@ synapse:
     liveness-lease: ${SYNAPSE_CALL_LIVENESS_LEASE:30s}
     timeout-sweep: ${SYNAPSE_CALL_TIMEOUT_SWEEP:1s}
     timeout-batch-size: ${SYNAPSE_CALL_TIMEOUT_BATCH_SIZE:100}
+  messaging:
+    voice:
+      storage-root: ${SYNAPSE_VOICE_STORAGE_ROOT:./var/voice-messages}
+      partial-cleanup-age: ${SYNAPSE_VOICE_PARTIAL_CLEANUP_AGE:1h}
+      orphan-cleanup-age: ${SYNAPSE_VOICE_ORPHAN_CLEANUP_AGE:24h}
+      cleanup-interval: ${SYNAPSE_VOICE_CLEANUP_INTERVAL:1h}
   jwt:
     secret: ${JWT_SECRET}
     token-expiration-ms: 900000          # 15 minutes — short-lived
