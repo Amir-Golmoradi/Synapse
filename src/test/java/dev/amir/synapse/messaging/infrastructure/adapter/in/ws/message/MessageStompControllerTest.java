@@ -1,7 +1,9 @@
 package dev.amir.synapse.messaging.infrastructure.adapter.in.ws.message;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -18,14 +20,18 @@ import java.time.Instant;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.messaging.MessageDeliveryException;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.messaging.simp.annotation.SendToUser;
 
 class MessageStompControllerTest {
   private final SendMessageUseCase sendMessageUseCase = mock(SendMessageUseCase.class);
-  private final MessageStompController controller = new MessageStompController(sendMessageUseCase);
+  private final SimpMessagingTemplate messagingTemplate = mock(SimpMessagingTemplate.class);
+  private final MessageStompController controller =
+      new MessageStompController(sendMessageUseCase, messagingTemplate);
 
   @Test
-  void sendsAsAuthenticatedPrincipal() {
+  void sendsAsAuthenticatedPrincipalAndPublishesCanonicalMessage() {
     var senderId = UUID.randomUUID();
     var roomId = UUID.randomUUID();
     var clientMessageId = UUID.randomUUID();
@@ -44,6 +50,7 @@ class MessageStompControllerTest {
               assertThat(sent.clientMessageId()).isEqualTo(clientMessageId);
               assertThat(sent.text()).isEqualTo("Hello");
             });
+    verify(messagingTemplate).convertAndSend("/topic/rooms/" + roomId, message);
   }
 
   @Test
@@ -60,6 +67,28 @@ class MessageStompControllerTest {
 
     verify(sendMessageUseCase, org.mockito.Mockito.times(2))
         .handle(org.mockito.ArgumentMatchers.any());
+    verify(messagingTemplate, org.mockito.Mockito.times(2))
+        .convertAndSend("/topic/rooms/" + roomId, message);
+  }
+
+  @Test
+  void committedMessageIsNotReportedAsFailedWhenBroadcastFails() {
+    var senderId = UUID.randomUUID();
+    var roomId = UUID.randomUUID();
+    var clientMessageId = UUID.randomUUID();
+    var message = message(roomId, senderId, clientMessageId, "Persisted");
+    when(sendMessageUseCase.handle(org.mockito.ArgumentMatchers.any())).thenReturn(message);
+    doThrow(new MessageDeliveryException("broker unavailable"))
+        .when(messagingTemplate)
+        .convertAndSend("/topic/rooms/" + roomId, message);
+
+    assertThatNoException()
+        .isThrownBy(
+            () ->
+                controller.send(
+                    roomId,
+                    new SendMessageRequest(clientMessageId, "Persisted"),
+                    principal(senderId)));
   }
 
   @Test
@@ -78,7 +107,7 @@ class MessageStompControllerTest {
                 assertThat(((RecoverableMessageException) thrown).getDomainException())
                     .isInstanceOf(MessageValidationException.class));
 
-    verifyNoInteractions(sendMessageUseCase);
+    verifyNoInteractions(sendMessageUseCase, messagingTemplate);
   }
 
   @Test
@@ -95,7 +124,7 @@ class MessageStompControllerTest {
                 assertThat(((RecoverableMessageException) thrown).getDomainException())
                     .isInstanceOf(MessageValidationException.class));
 
-    verifyNoInteractions(sendMessageUseCase);
+    verifyNoInteractions(sendMessageUseCase, messagingTemplate);
   }
 
   @Test
