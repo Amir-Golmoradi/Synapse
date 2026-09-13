@@ -3,6 +3,7 @@ package dev.amir.synapse.messaging.infrastructure.adapter.out.persistence.messag
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import dev.amir.synapse.messaging.domain.enums.MessageType;
 import dev.amir.synapse.messaging.domain.enums.RoomRole;
 import dev.amir.synapse.messaging.domain.exception.MessageIdempotencyConflictException;
 import dev.amir.synapse.messaging.domain.exception.MessageRoomAccessDeniedException;
@@ -11,8 +12,13 @@ import dev.amir.synapse.messaging.domain.port.in.list_messages.ListMessagesQuery
 import dev.amir.synapse.messaging.domain.port.in.list_messages.ListMessagesUseCase;
 import dev.amir.synapse.messaging.domain.port.in.send_message.SendMessageCommand;
 import dev.amir.synapse.messaging.domain.port.in.send_message.SendMessageUseCase;
+import dev.amir.synapse.messaging.domain.port.out.MessageMediaReadPort;
+import dev.amir.synapse.messaging.domain.port.out.MessageWritePort;
 import dev.amir.synapse.messaging.domain.port.out.SaveRoomPort;
 import dev.amir.synapse.messaging.domain.value_object.MemberId;
+import dev.amir.synapse.messaging.domain.value_object.VideoMetadata;
+import dev.amir.synapse.messaging.domain.value_object.VideoMetadata.AudioCodec;
+import dev.amir.synapse.messaging.domain.value_object.VideoMetadata.VideoCodec;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -58,6 +64,8 @@ class MessageJdbcAdapterIntegrationTest {
   @Autowired private SendMessageUseCase sendMessageUseCase;
   @Autowired private ListMessagesUseCase listMessagesUseCase;
   @Autowired private SaveRoomPort saveRoomPort;
+  @Autowired private MessageWritePort messageWritePort;
+  @Autowired private MessageMediaReadPort messageMediaReadPort;
   @Autowired private JdbcClient jdbcClient;
 
   @DynamicPropertySource
@@ -216,6 +224,69 @@ class MessageJdbcAdapterIntegrationTest {
     assertThat(second.items()).hasSize(2);
     assertThat(second.nextCursor()).isNull();
     assertThat(actualIds).containsExactlyElementsOf(expectedIds).doesNotHaveDuplicates();
+  }
+
+  @Test
+  void videoMessageMetadataParticipatesInHistoryAuthorizationAndIdempotency() {
+    var senderId = UUID.randomUUID();
+    var roomId = saveGroup(senderId);
+    var clientMessageId = UUID.randomUUID();
+    var digest = new byte[32];
+    digest[0] = 1;
+    var metadata =
+        new VideoMetadata("video/webm", 2_048, 3_500, 1_280, 720, VideoCodec.VP9, AudioCodec.OPUS);
+
+    var created =
+        messageWritePort.saveVideoAuthorized(
+            roomId,
+            senderId,
+            clientMessageId,
+            "video/aa/11111111-1111-1111-1111-111111111111.webm",
+            digest,
+            metadata);
+    var retry =
+        messageWritePort.saveVideoAuthorized(
+            roomId,
+            senderId,
+            clientMessageId,
+            "video/bb/22222222-2222-2222-2222-222222222222.webm",
+            digest,
+            metadata);
+
+    assertThat(created.created()).isTrue();
+    assertThat(created.message().type()).isEqualTo(MessageType.VIDEO);
+    assertThat(created.message().text()).isNull();
+    assertThat(created.message().media()).isEqualTo(metadata);
+    assertThat(retry.created()).isFalse();
+    assertThat(retry.message()).isEqualTo(created.message());
+    assertThat(
+            listMessagesUseCase.handle(new ListMessagesQuery(senderId, roomId, 50, null)).items())
+        .containsExactly(created.message());
+    assertThat(messageMediaReadPort.findAuthorized(created.message().messageId(), senderId))
+        .get()
+        .satisfies(
+            media -> {
+              assertThat(media.storageKey())
+                  .isEqualTo("video/aa/11111111-1111-1111-1111-111111111111.webm");
+              assertThat(media.sha256()).isEqualTo(digest);
+            });
+    assertThat(
+            messageMediaReadPort.findAuthorized(created.message().messageId(), UUID.randomUUID()))
+        .isEmpty();
+
+    var differentDigest = digest.clone();
+    differentDigest[1] = 1;
+    assertThatThrownBy(
+            () ->
+                messageWritePort.saveVideoAuthorized(
+                    roomId,
+                    senderId,
+                    clientMessageId,
+                    "video/cc/33333333-3333-3333-3333-333333333333.webm",
+                    differentDigest,
+                    metadata))
+        .isInstanceOf(MessageIdempotencyConflictException.class);
+    assertThat(messageCount(roomId)).isOne();
   }
 
   private UUID saveGroup(UUID memberId) {

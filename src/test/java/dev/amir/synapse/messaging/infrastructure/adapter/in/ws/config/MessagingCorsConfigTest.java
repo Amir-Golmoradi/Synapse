@@ -27,7 +27,7 @@ class MessagingCorsConfigTest {
         .containsExactly("https://app.example", "https://admin.example");
     assertThat(configuration.getAllowedMethods()).containsExactly("GET");
     assertThat(configuration.getAllowedHeaders())
-        .containsExactly("Authorization", "Content-Type", "X-Request-ID");
+        .containsExactly("Authorization", "Content-Type", "Range", "If-None-Match", "X-Request-ID");
     assertThat(configuration.getMaxAge()).isEqualTo(3600L);
     assertThat(
             source.getCorsConfiguration(

@@ -13,6 +13,9 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 @Configuration(proxyBeanMethods = false)
 @EnableConfigurationProperties(WebSocketProperties.class)
 public class ApiCorsConfig {
+  private static final String GET = "GET";
+  private static final String POST = "POST";
+
   @Bean
   public CorsConfigurationSource corsConfigurationSource(WebSocketProperties properties) {
     var source = new UrlBasedCorsConfigurationSource();
@@ -20,13 +23,17 @@ public class ApiCorsConfig {
       return source;
     }
     source.registerCorsConfiguration(
-        "/api/v1/room/*/messages", configuration(properties, List.of("GET")));
+        "/api/v1/room/*/messages", configuration(properties, List.of(GET)));
     source.registerCorsConfiguration(
-        "/api/v1/calls", configuration(properties, List.of("GET", "POST")));
+        "/api/v1/room/*/messages/video", configuration(properties, List.of(POST)));
     source.registerCorsConfiguration(
-        "/api/v1/calls/**", configuration(properties, List.of("GET", "POST")));
+        "/api/v1/messages/*/media", configuration(properties, List.of(GET, "HEAD")));
     source.registerCorsConfiguration(
-        "/api/v1/auth/refresh", configuration(properties, List.of("POST")));
+        "/api/v1/calls", configuration(properties, List.of(GET, POST)));
+    source.registerCorsConfiguration(
+        "/api/v1/calls/**", configuration(properties, List.of(GET, POST)));
+    source.registerCorsConfiguration(
+        "/api/v1/auth/refresh", configuration(properties, List.of(POST)));
     return source;
   }
 
@@ -35,8 +42,16 @@ public class ApiCorsConfig {
     var configuration = new CorsConfiguration();
     configuration.setAllowedOrigins(properties.allowedOrigins());
     configuration.setAllowedMethods(methods);
-    configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Request-ID"));
-    configuration.setExposedHeaders(List.of("Location", "X-Request-ID"));
+    configuration.setAllowedHeaders(
+        List.of("Authorization", "Content-Type", "Range", "If-None-Match", "X-Request-ID"));
+    configuration.setExposedHeaders(
+        List.of(
+            "Location",
+            "X-Request-ID",
+            "Content-Length",
+            "Content-Range",
+            "Accept-Ranges",
+            "ETag"));
     configuration.setMaxAge(Duration.ofHours(1));
     return configuration;
   }

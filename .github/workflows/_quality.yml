@@ -27,6 +27,9 @@ jobs:
       - name: Ensure Maven Wrapper is executable
         run: chmod +x mvnw
 
+      - name: Install media inspection dependency
+        run: sudo apt-get update && sudo apt-get install --yes ffmpeg
+
       - name: Run tests and quality gates
         run: ./mvnw --batch-mode --no-transfer-progress clean verify
 
