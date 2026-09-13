@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import dev.amir.synapse.call.domain.enums.CallMediaType;
 import dev.amir.synapse.call.domain.enums.CallStatus;
 import dev.amir.synapse.call.domain.port.in.AcceptCallUseCase;
 import dev.amir.synapse.call.domain.port.in.CallView;
@@ -58,18 +59,36 @@ class CallCommandApiTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(
                     """
-                    {"calleeId":"%s","clientRequestId":"%s","clientInstanceId":"%s"}
+                    {"calleeId":"%s","clientRequestId":"%s","clientInstanceId":"%s","mediaType":"VIDEO"}
                     """
                         .formatted(callee, requestId, instanceId)))
         .andExpect(status().isCreated())
         .andExpect(header().string("Location", "/api/v1/calls/" + callId))
         .andExpect(jsonPath("$.callId").value(callId.toString()))
+        .andExpect(jsonPath("$.mediaType").value("VIDEO"))
         .andExpect(jsonPath("$.status").value("RINGING"));
 
     var captor = ArgumentCaptor.forClass(StartCallUseCase.Command.class);
     verify(start).handle(captor.capture());
     assertThat(captor.getValue().callerId()).isEqualTo(caller);
     assertThat(captor.getValue().calleeId()).isEqualTo(callee);
+    assertThat(captor.getValue().mediaType()).isEqualTo(CallMediaType.VIDEO);
+  }
+
+  @Test
+  void startRequiresMediaType() throws Exception {
+    mockMvc
+        .perform(
+            post("/api/v1/calls")
+                .principal(authenticated(UUID.randomUUID()))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {"calleeId":"%s","clientRequestId":"%s","clientInstanceId":"%s"}
+                    """
+                        .formatted(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID())))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.errorCode").value("CALL_REQUEST_INVALID"));
   }
 
   private static UsernamePasswordAuthenticationToken authenticated(UUID userId) {
@@ -82,6 +101,7 @@ class CallCommandApiTest {
         callId,
         caller,
         callee,
+        CallMediaType.VIDEO,
         CallStatus.RINGING,
         0,
         now,

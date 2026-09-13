@@ -4,12 +4,13 @@ import dev.amir.synapse.call.application.port.out.CallClientConnectionPort;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import org.springframework.stereotype.Component;
 
 @Component
 public class LocalCallClientRegistry implements CallClientConnectionPort {
-  private final ConcurrentHashMap<ClientKey, String> sessionsByClient = new ConcurrentHashMap<>();
-  private final ConcurrentHashMap<String, ClientKey> clientsBySession = new ConcurrentHashMap<>();
+  private final ConcurrentMap<ClientKey, String> sessionsByClient = new ConcurrentHashMap<>();
+  private final ConcurrentMap<String, ClientKey> clientsBySession = new ConcurrentHashMap<>();
 
   @Override
   public void register(UUID userId, UUID clientInstanceId, String sessionId) {

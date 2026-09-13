@@ -4,6 +4,7 @@ import dev.amir.synapse.shared.domain.DomainException;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
+@SuppressWarnings("PMD.AvoidFieldNameMatchingMethodName")
 class RecoverableCallStompException extends RuntimeException {
   private static final long serialVersionUID = 1L;
   private final DomainException domainException;

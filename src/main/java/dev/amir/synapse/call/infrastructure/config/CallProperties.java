@@ -11,6 +11,8 @@ public record CallProperties(
     Duration livenessLease,
     Duration timeoutSweep,
     int timeoutBatchSize) {
+  private static final int MAX_TIMEOUT_BATCH_SIZE = 1_000;
+
   public CallProperties {
     ringingTimeout = defaultValue(ringingTimeout, Duration.ofSeconds(45));
     connectionTimeout = defaultValue(connectionTimeout, Duration.ofSeconds(30));
@@ -23,7 +25,7 @@ public record CallProperties(
     requirePositive("recovery-timeout", recoveryTimeout);
     requirePositive("liveness-lease", livenessLease);
     requirePositive("timeout-sweep", timeoutSweep);
-    if (timeoutBatchSize > 1_000) {
+    if (timeoutBatchSize > MAX_TIMEOUT_BATCH_SIZE) {
       throw new IllegalArgumentException("timeout-batch-size must not exceed 1000");
     }
   }

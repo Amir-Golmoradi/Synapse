@@ -37,6 +37,7 @@ class CallSignalServiceTest {
             new dev.amir.synapse.call.domain.model.CallSnapshot(
                 dev.amir.synapse.call.domain.value_object.CallId.of(callId),
                 new CallParticipants(caller, callee),
+                dev.amir.synapse.call.domain.enums.CallMediaType.VIDEO,
                 UUID.randomUUID(),
                 "fingerprint",
                 dev.amir.synapse.call.domain.enums.CallStatus.CONNECTING,

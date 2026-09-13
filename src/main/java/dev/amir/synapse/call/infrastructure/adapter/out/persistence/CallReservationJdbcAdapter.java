@@ -29,7 +29,9 @@ class CallReservationJdbcAdapter implements CallReservationPort {
             .update();
       }
     } catch (DataIntegrityViolationException exception) {
-      throw CallOperationException.busy();
+      var busy = CallOperationException.busy();
+      busy.initCause(exception);
+      throw busy;
     }
   }
 

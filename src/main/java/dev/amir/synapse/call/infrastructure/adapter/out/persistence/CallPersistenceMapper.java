@@ -14,6 +14,7 @@ class CallPersistenceMapper {
         new CallSnapshot(
             CallId.of(entity.id()),
             new CallParticipants(entity.callerId(), entity.calleeId()),
+            entity.mediaType(),
             entity.clientRequestId(),
             entity.startRequestFingerprint(),
             entity.status(),
@@ -36,6 +37,7 @@ class CallPersistenceMapper {
         s.participants().calleeId(),
         s.clientRequestId(),
         s.startRequestFingerprint(),
+        s.mediaType(),
         s.status(),
         s.createdAt(),
         s.updatedAt(),

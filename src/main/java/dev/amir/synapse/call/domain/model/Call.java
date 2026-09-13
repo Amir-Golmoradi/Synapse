@@ -1,5 +1,6 @@
 package dev.amir.synapse.call.domain.model;
 
+import dev.amir.synapse.call.domain.enums.CallMediaType;
 import dev.amir.synapse.call.domain.enums.CallStatus;
 import dev.amir.synapse.call.domain.enums.CallTerminationReason;
 import dev.amir.synapse.call.domain.event.CallStartedEvent;
@@ -14,8 +15,11 @@ import java.util.Objects;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
+@SuppressWarnings("PMD.AvoidFieldNameMatchingMethodName")
 public final class Call extends AggregateRoot<CallId, DomainEvent> {
   private final CallParticipants participants;
+  private final CallMediaType mediaType;
+
   private final UUID clientRequestId;
   private final String startRequestFingerprint;
   private final Instant createdAt;
@@ -32,6 +36,7 @@ public final class Call extends AggregateRoot<CallId, DomainEvent> {
   private Call(CallSnapshot snapshot) {
     super(Objects.requireNonNull(snapshot.id()));
     participants = Objects.requireNonNull(snapshot.participants());
+    mediaType = Objects.requireNonNull(snapshot.mediaType());
     clientRequestId = Objects.requireNonNull(snapshot.clientRequestId());
     startRequestFingerprint = Objects.requireNonNull(snapshot.startRequestFingerprint());
     status = Objects.requireNonNull(snapshot.status());
@@ -48,6 +53,7 @@ public final class Call extends AggregateRoot<CallId, DomainEvent> {
 
   public static Call start(
       CallParticipants participants,
+      CallMediaType mediaType,
       UUID clientRequestId,
       String fingerprint,
       Instant now,
@@ -57,6 +63,7 @@ public final class Call extends AggregateRoot<CallId, DomainEvent> {
             new CallSnapshot(
                 CallId.generate(),
                 participants,
+                Objects.requireNonNull(mediaType, "Call media type cannot be null"),
                 clientRequestId,
                 fingerprint,
                 CallStatus.RINGING,
@@ -71,7 +78,11 @@ public final class Call extends AggregateRoot<CallId, DomainEvent> {
                 null));
     call.registerEvent(
         new CallStartedEvent(
-            call.getId().value(), participants.callerId(), participants.calleeId(), now));
+            call.getId().value(),
+            participants.callerId(),
+            participants.calleeId(),
+            mediaType,
+            now));
     return call;
   }
 
@@ -179,7 +190,7 @@ public final class Call extends AggregateRoot<CallId, DomainEvent> {
     if (next.isTerminal()) {
       endedAt = now;
     }
-    registerEvent(new CallStatusChangedEvent(getId().value(), previous, next, now));
+    registerEvent(new CallStatusChangedEvent(getId().value(), mediaType, previous, next, now));
   }
 
   private void require(CallStatus expected) {
@@ -217,6 +228,7 @@ public final class Call extends AggregateRoot<CallId, DomainEvent> {
     return new CallSnapshot(
         getId(),
         participants,
+        mediaType,
         clientRequestId,
         startRequestFingerprint,
         status,
@@ -233,6 +245,10 @@ public final class Call extends AggregateRoot<CallId, DomainEvent> {
 
   public CallParticipants participants() {
     return participants;
+  }
+
+  public CallMediaType mediaType() {
+    return mediaType;
   }
 
   public CallStatus status() {

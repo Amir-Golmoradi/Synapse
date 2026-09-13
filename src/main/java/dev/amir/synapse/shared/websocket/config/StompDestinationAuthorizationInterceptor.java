@@ -18,6 +18,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class StompDestinationAuthorizationInterceptor implements ChannelInterceptor {
   private static final String PRIVATE_ERROR_DESTINATION = "/user/queue/errors";
+  private static final int REQUIRED_POLICY_COUNT = 1;
   private final List<StompDestinationPolicy> policies;
   private final StompClientErrorSender errorSender;
 
@@ -66,7 +67,7 @@ public class StompDestinationAuthorizationInterceptor implements ChannelIntercep
       throw denied();
     }
     var matching = policies.stream().filter(p -> p.supports(command, destination)).toList();
-    if (matching.size() != 1) {
+    if (matching.size() != REQUIRED_POLICY_COUNT) {
       throw denied();
     }
     matching.getFirst().authorize(command, destination, userId);

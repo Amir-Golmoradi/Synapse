@@ -4,6 +4,7 @@ import dev.amir.synapse.call.application.model.CallRuntimeState;
 import dev.amir.synapse.call.application.model.CallSettings;
 import dev.amir.synapse.call.application.port.out.CallReservationPort;
 import dev.amir.synapse.call.application.port.out.CallRuntimePort;
+import dev.amir.synapse.call.domain.enums.CallMediaType;
 import dev.amir.synapse.call.domain.model.Call;
 import dev.amir.synapse.call.domain.port.out.SaveCallPort;
 import dev.amir.synapse.call.domain.value_object.CallParticipants;
@@ -39,11 +40,17 @@ public class CallCreationTransactionService {
 
   @Transactional
   public Call create(
-      UUID caller, UUID callee, UUID requestId, UUID instanceId, String fingerprint) {
+      UUID caller,
+      UUID callee,
+      UUID requestId,
+      UUID instanceId,
+      CallMediaType mediaType,
+      String fingerprint) {
     var now = clock.instant();
     var call =
         Call.start(
             new CallParticipants(caller, callee),
+            mediaType,
             requestId,
             fingerprint,
             now,

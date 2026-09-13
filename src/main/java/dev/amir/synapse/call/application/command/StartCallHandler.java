@@ -46,7 +46,8 @@ public class StartCallHandler implements StartCallUseCase {
   @Override
   public Result handle(Command command) {
     require(command);
-    var fingerprint = fingerprint(command.calleeId(), command.clientInstanceId());
+    var fingerprint =
+        fingerprint(command.calleeId(), command.clientInstanceId(), command.mediaType());
     var existing = calls.findByCallerAndRequestId(command.callerId(), command.clientRequestId());
     if (existing.isPresent()) {
       var call = existing.orElseThrow();
@@ -71,6 +72,7 @@ public class StartCallHandler implements StartCallUseCase {
               command.calleeId(),
               command.clientRequestId(),
               command.clientInstanceId(),
+              command.mediaType(),
               fingerprint);
     } catch (CallOperationException exception) {
       if (!"CALL_BUSY".equals(exception.getErrorCode())) {
@@ -105,7 +107,8 @@ public class StartCallHandler implements StartCallUseCase {
         || command.callerId() == null
         || command.calleeId() == null
         || command.clientRequestId() == null
-        || command.clientInstanceId() == null) {
+        || command.clientInstanceId() == null
+        || command.mediaType() == null) {
       throw new CallValidationException("Call identifiers are required.");
     }
   }
