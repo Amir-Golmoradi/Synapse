@@ -29,7 +29,10 @@ FROM eclipse-temurin:21.0.12_8-jre-alpine AS runtime
 WORKDIR /app
 
 RUN addgroup -S synapse \
-    && adduser -S synapse -G synapse
+    && adduser -S synapse -G synapse \
+    && apk add --no-cache ffmpeg \
+    && mkdir -p /var/lib/synapse/media \
+    && chown -R synapse:synapse /var/lib/synapse/media
 
 COPY --from=builder --chown=synapse:synapse /app/target/*.jar ./app.jar
 

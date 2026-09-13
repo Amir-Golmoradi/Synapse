@@ -34,6 +34,11 @@ spring:
       timeout: 200ms
       repositories:
         enabled: false
+  servlet:
+    multipart:
+      file-size-threshold: 0B
+      max-file-size: 25MB
+      max-request-size: 26MB
 springdoc:
   api-docs:
     path: /v3/api-docs
@@ -54,6 +59,18 @@ synapse:
     liveness-lease: ${SYNAPSE_CALL_LIVENESS_LEASE:30s}
     timeout-sweep: ${SYNAPSE_CALL_TIMEOUT_SWEEP:1s}
     timeout-batch-size: ${SYNAPSE_CALL_TIMEOUT_BATCH_SIZE:100}
+  messaging:
+    video:
+      storage-root: ${SYNAPSE_VIDEO_STORAGE_ROOT:.synapse/media}
+      max-file-size: 25MB
+      max-duration: 60s
+      max-dimension: 1920
+      max-pixels: 2073600
+      probe-timeout: 5s
+      staging-grace: 1h
+      orphan-grace: 24h
+      cleanup-interval: 1h
+      cleanup-batch-size: 1000
   jwt:
     secret: ${JWT_SECRET}
     token-expiration-ms: 900000          # 15 minutes — short-lived
