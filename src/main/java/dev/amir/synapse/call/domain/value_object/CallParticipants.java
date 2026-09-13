@@ -10,7 +10,7 @@ public record CallParticipants(UUID callerId, UUID calleeId) implements ValueObj
     Objects.requireNonNull(callerId, "Caller ID cannot be null");
     Objects.requireNonNull(calleeId, "Callee ID cannot be null");
     if (callerId.equals(calleeId)) {
-      throw new CallValidationException("A voice call requires two different users.");
+      throw new CallValidationException("A call requires two different users.");
     }
   }
 

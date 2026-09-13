@@ -9,6 +9,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "call_runtime")
+@SuppressWarnings("PMD.AvoidFieldNameMatchingMethodName")
 class CallRuntimeJpaEntity {
   @Id
   @Column(name = "call_id")

@@ -30,31 +30,46 @@ public class CallAfterCommitListener {
           call.callerId().toString(), "/queue/calls/events", notification);
       messagingTemplate.convertAndSendToUser(
           call.calleeId().toString(), "/queue/calls/events", notification);
-      LOGGER.info(
-          "call_lifecycle callId={} eventId={} callerId={} calleeId={} status={} version={}"
-              + " generation={}",
-          call.callId(),
-          notification.eventId(),
-          call.callerId(),
-          call.calleeId(),
-          call.status(),
-          call.version(),
-          call.negotiationGeneration());
-      meterRegistry.counter("synapse.calls.lifecycle", "status", call.status().name()).increment();
+      if (LOGGER.isInfoEnabled()) {
+        LOGGER.info(
+            "call_lifecycle callId={} eventId={} callerId={} calleeId={} mediaType={} status={}"
+                + " version={} generation={}",
+            call.callId(),
+            notification.eventId(),
+            call.callerId(),
+            call.calleeId(),
+            call.mediaType(),
+            call.status(),
+            call.version(),
+            call.negotiationGeneration());
+      }
+      meterRegistry
+          .counter(
+              "synapse.calls.lifecycle",
+              "status",
+              call.status().name(),
+              "media_type",
+              call.mediaType().name().toLowerCase(java.util.Locale.ROOT))
+          .increment();
       if ("CALL_ACTIVE".equals(notification.type())
           && call.connectedAt() != null
           && call.acceptedAt() != null) {
         meterRegistry
-            .timer("synapse.calls.connection.setup")
+            .timer(
+                "synapse.calls.connection.setup",
+                "media_type",
+                call.mediaType().name().toLowerCase(java.util.Locale.ROOT))
             .record(Duration.between(call.acceptedAt(), call.connectedAt()));
       }
     } catch (RuntimeException exception) {
       meterRegistry.counter("synapse.calls.delivery.failures").increment();
-      LOGGER.error(
-          "call_notification_failed callId={} eventId={}",
-          call.callId(),
-          notification.eventId(),
-          exception);
+      if (LOGGER.isErrorEnabled()) {
+        LOGGER.error(
+            "call_notification_failed callId={} eventId={}",
+            call.callId(),
+            notification.eventId(),
+            exception);
+      }
     }
   }
 }

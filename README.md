@@ -29,7 +29,7 @@
 
 ## Overview
 
-Synapse is a modular backend for real-time communication systems, including text messaging, user presence, voice calls, and video-call signaling.
+Synapse is a modular backend for real-time communication systems, including text messaging, user presence, and one-to-one Voice/Video Call signaling.
 
 The project is designed as a **modular monolith** so that architectural boundaries can be validated before introducing the operational complexity of microservices. Each bounded context owns its domain model, use cases, persistence adapters, and external integrations.
 
@@ -60,7 +60,7 @@ It is not currently presented as a production SaaS. The goal is to build and doc
 - Room membership validation through the Identity bounded context
 - Command/query separation for room creation and room retrieval
 - PostgreSQL persistence
-- One-to-one voice-call lifecycle, refresh recovery, and private WebRTC signaling
+- One-to-one Voice/Video Call lifecycle, refresh recovery, and private WebRTC signaling
 - Automated formatting and static-analysis checks
 
 ### In Progress
@@ -68,7 +68,7 @@ It is not currently presented as a production SaaS. The goal is to build and doc
 - Real-time message delivery over WebSocket
 - Message persistence, acknowledgement, and delivery state
 - Redis-backed presence tracking
-- Production client integration for the implemented one-to-one voice-call signaling protocol
+- Production client integration for the implemented one-to-one Voice/Video signaling protocol
 - Domain-event publication between bounded contexts
 - Broader integration and reliability testing
 
@@ -80,7 +80,7 @@ It is not currently presented as a production SaaS. The goal is to build and doc
 |---|---|---|
 | `identity` | Google authentication, user provisioning, Synapse token lifecycle, and internal user lookup | Implemented |
 | `messaging` | Rooms, memberships, messaging commands, and room queries | Room domain implemented; real-time delivery in progress |
-| `call` | One-to-one voice-call lifecycle, recovery, and WebRTC signaling | Implemented |
+| `call` | One-to-one Voice/Video lifecycle, recovery, and WebRTC signaling | Implemented |
 | `presence` | Ephemeral user and session availability backed by Redis | In progress |
 | `shared` | Carefully limited cross-cutting primitives and technical support | Available |
 
@@ -637,8 +637,8 @@ The Maven initialization step links the repository's pre-commit hook into `.git/
 - Synapse is currently deployed as a modular monolith.
 - Native WebSocket/STOMP delivery is available for the single-instance deployment model.
 - WebRTC media does not pass through Synapse; the backend is intended to coordinate signaling.
-- Internet-reliable voice calling requires a separately operated TURN service.
-- Voice-call notification delivery is best effort; clients reconcile through `GET /api/v1/calls/current`.
+- Internet-reliable calling requires a separately operated TURN service.
+- Call notification delivery is best effort; clients reconcile through `GET /api/v1/calls/current`.
 - TURN infrastructure is not included.
 - Presence consistency across multiple application instances is not complete.
 - The repository is intended for engineering demonstration and local development, not public production deployment in its current state.

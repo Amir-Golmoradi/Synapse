@@ -24,11 +24,11 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/calls")
 public class CallCommandApi {
-  private final StartCallUseCase start;
-  private final AcceptCallUseCase accept;
-  private final RejectCallUseCase reject;
-  private final EndCallUseCase end;
-  private final ResumeCallUseCase resume;
+  private final StartCallUseCase startCall;
+  private final AcceptCallUseCase acceptCall;
+  private final RejectCallUseCase rejectCall;
+  private final EndCallUseCase endCall;
+  private final ResumeCallUseCase resumeCall;
 
   public CallCommandApi(
       StartCallUseCase start,
@@ -36,23 +36,24 @@ public class CallCommandApi {
       RejectCallUseCase reject,
       EndCallUseCase end,
       ResumeCallUseCase resume) {
-    this.start = start;
-    this.accept = accept;
-    this.reject = reject;
-    this.end = end;
-    this.resume = resume;
+    this.startCall = start;
+    this.acceptCall = accept;
+    this.rejectCall = reject;
+    this.endCall = end;
+    this.resumeCall = resume;
   }
 
   @PostMapping
   public ResponseEntity<CallView> start(
       @Valid @RequestBody StartCallRequest request, Authentication authentication) {
     var result =
-        start.handle(
+        startCall.handle(
             new StartCallUseCase.Command(
                 actor(authentication),
                 request.calleeId(),
                 request.clientRequestId(),
-                request.clientInstanceId()));
+                request.clientInstanceId(),
+                request.mediaType()));
     return result.created()
         ? ResponseEntity.created(URI.create("/api/v1/calls/" + result.call().callId()))
             .body(result.call())
@@ -64,12 +65,12 @@ public class CallCommandApi {
       @PathVariable UUID callId,
       @Valid @RequestBody AcceptCallRequest request,
       Authentication authentication) {
-    return accept.accept(callId, actor(authentication), request.clientInstanceId());
+    return acceptCall.accept(callId, actor(authentication), request.clientInstanceId());
   }
 
   @PostMapping("/{callId}/reject")
   public CallView reject(@PathVariable UUID callId, Authentication authentication) {
-    return reject.reject(callId, actor(authentication));
+    return rejectCall.reject(callId, actor(authentication));
   }
 
   @PostMapping("/{callId}/end")
@@ -77,7 +78,7 @@ public class CallCommandApi {
       @PathVariable UUID callId,
       @Valid @RequestBody EndCallRequest request,
       Authentication authentication) {
-    return end.end(callId, actor(authentication), request.reason());
+    return endCall.end(callId, actor(authentication), request.reason());
   }
 
   @PostMapping("/{callId}/resume")
@@ -85,7 +86,7 @@ public class CallCommandApi {
       @PathVariable UUID callId,
       @Valid @RequestBody ResumeCallRequest request,
       Authentication authentication) {
-    return resume.resume(
+    return resumeCall.resume(
         new ResumeCallUseCase.Command(
             callId,
             actor(authentication),

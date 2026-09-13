@@ -1,5 +1,6 @@
 package dev.amir.synapse.call.domain.model;
 
+import dev.amir.synapse.call.domain.enums.CallMediaType;
 import dev.amir.synapse.call.domain.enums.CallStatus;
 import dev.amir.synapse.call.domain.enums.CallTerminationReason;
 import dev.amir.synapse.call.domain.value_object.CallId;
@@ -11,6 +12,7 @@ import org.jspecify.annotations.Nullable;
 public record CallSnapshot(
     CallId id,
     CallParticipants participants,
+    CallMediaType mediaType,
     UUID clientRequestId,
     String startRequestFingerprint,
     CallStatus status,

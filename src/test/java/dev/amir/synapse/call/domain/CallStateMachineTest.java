@@ -3,6 +3,7 @@ package dev.amir.synapse.call.domain;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import dev.amir.synapse.call.domain.enums.CallMediaType;
 import dev.amir.synapse.call.domain.enums.CallStatus;
 import dev.amir.synapse.call.domain.enums.CallTerminationReason;
 import dev.amir.synapse.call.domain.exception.CallOperationException;
@@ -33,6 +34,7 @@ class CallStateMachineTest {
     assertThat(call.snapshot().connectedAt()).isEqualTo(now.plusSeconds(2));
     assertThat(call.snapshot().terminationReason()).isEqualTo(CallTerminationReason.HANGUP);
     assertThat(call.snapshot().terminatedBy()).isEqualTo(caller);
+    assertThat(call.mediaType()).isEqualTo(CallMediaType.VIDEO);
   }
 
   @Test
@@ -82,9 +84,25 @@ class CallStateMachineTest {
         .isInstanceOf(CallOperationException.class);
   }
 
+  @Test
+  void callRequiresAMediaType() {
+    assertThatThrownBy(
+            () ->
+                Call.start(
+                    new CallParticipants(caller, callee),
+                    null,
+                    UUID.randomUUID(),
+                    "fingerprint",
+                    now,
+                    now.plusSeconds(45)))
+        .isInstanceOf(NullPointerException.class)
+        .hasMessage("Call media type cannot be null");
+  }
+
   private Call call() {
     return Call.start(
         new CallParticipants(caller, callee),
+        CallMediaType.VIDEO,
         UUID.randomUUID(),
         "fingerprint",
         now,

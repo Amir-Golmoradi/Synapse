@@ -1,5 +1,6 @@
 package dev.amir.synapse.call.infrastructure.adapter.out.persistence;
 
+import dev.amir.synapse.call.domain.enums.CallMediaType;
 import dev.amir.synapse.call.domain.enums.CallStatus;
 import dev.amir.synapse.call.domain.enums.CallTerminationReason;
 import jakarta.persistence.Column;
@@ -14,6 +15,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "calls")
+@SuppressWarnings({"PMD.AvoidFieldNameMatchingMethodName", "PMD.AvoidDuplicateLiterals"})
 class CallJpaEntity {
   @Id private UUID id;
 
@@ -28,6 +30,10 @@ class CallJpaEntity {
 
   @Column(name = "start_request_fingerprint", nullable = false, updatable = false, length = 64)
   private String startRequestFingerprint;
+
+  @Enumerated(EnumType.STRING)
+  @Column(name = "media_type", nullable = false, updatable = false, length = 10)
+  private CallMediaType mediaType;
 
   @Enumerated(EnumType.STRING)
   @Column(nullable = false, length = 20)
@@ -74,6 +80,7 @@ class CallJpaEntity {
       UUID calleeId,
       UUID clientRequestId,
       String startRequestFingerprint,
+      CallMediaType mediaType,
       CallStatus status,
       Instant createdAt,
       Instant updatedAt,
@@ -89,6 +96,7 @@ class CallJpaEntity {
     this.calleeId = calleeId;
     this.clientRequestId = clientRequestId;
     this.startRequestFingerprint = startRequestFingerprint;
+    this.mediaType = mediaType;
     this.status = status;
     this.createdAt = createdAt;
     this.updatedAt = updatedAt;
@@ -119,6 +127,10 @@ class CallJpaEntity {
 
   String startRequestFingerprint() {
     return startRequestFingerprint;
+  }
+
+  CallMediaType mediaType() {
+    return mediaType;
   }
 
   CallStatus status() {

@@ -1,5 +1,6 @@
 package dev.amir.synapse.call.domain.port.in;
 
+import dev.amir.synapse.call.domain.enums.CallMediaType;
 import dev.amir.synapse.call.domain.enums.CallStatus;
 import dev.amir.synapse.call.domain.enums.CallTerminationReason;
 import dev.amir.synapse.call.domain.model.Call;
@@ -11,6 +12,7 @@ public record CallView(
     UUID callId,
     UUID callerId,
     UUID calleeId,
+    CallMediaType mediaType,
     CallStatus status,
     long version,
     Instant createdAt,
@@ -29,6 +31,7 @@ public record CallView(
         snapshot.id().value(),
         snapshot.participants().callerId(),
         snapshot.participants().calleeId(),
+        snapshot.mediaType(),
         snapshot.status(),
         snapshot.version() == null ? 0 : snapshot.version(),
         snapshot.createdAt(),
