@@ -4,7 +4,7 @@ import dev.amir.synapse.shared.domain.DomainException;
 
 public final class InvalidEmailException extends DomainException {
   private static final long serialVersionUID = 1L;
-  private static final String MESSAGE = "Email cannot be empty or null";
+  private static final String MESSAGE = "Email address is required and cannot be blank.";
 
   public InvalidEmailException() {
     super(MESSAGE);

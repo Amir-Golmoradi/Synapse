@@ -36,10 +36,9 @@ class CreateChannelHandler implements CreateChannelUseCase {
             .filter(id -> !id.equals(command.creatorId()))
             .collect(Collectors.toSet());
 
+    var found = lookupUseCase.getUsersByIds(extraMembers);
     var unknownMembers =
-        extraMembers.stream()
-            .filter(id -> !lookupUseCase.existsByUserId(id))
-            .collect(Collectors.toSet());
+        extraMembers.stream().filter(id -> !found.containsKey(id)).collect(Collectors.toSet());
 
     if (!unknownMembers.isEmpty()) {
       throw new ChannelMembersNotFoundException(unknownMembers);
@@ -50,7 +49,7 @@ class CreateChannelHandler implements CreateChannelUseCase {
 
     var room = Room.createChannel(creatorMemberId, command.name(), command.avatarUrl());
 
-    extraMembers.stream().map(MemberId::of).forEach(room::addMember);
+    room.addMembers(extraMembers.stream().map(MemberId::of).collect(Collectors.toSet()));
     roomPort.save(room);
 
     return new CreateChannelResponse(

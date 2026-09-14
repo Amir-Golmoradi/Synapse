@@ -1,10 +1,13 @@
 package dev.amir.synapse.identity.application.command.google_signin;
 
+import dev.amir.synapse.identity.application.exception.OidcVerificationException;
 import dev.amir.synapse.identity.application.port.out.access_token.CreateAccessTokenPort;
-import dev.amir.synapse.identity.application.port.out.google.GoogleOAuthPort;
+import dev.amir.synapse.identity.application.port.out.oauth.OidcPort;
+import dev.amir.synapse.identity.application.port.out.oauth.VerifiedOidcProfile;
 import dev.amir.synapse.identity.application.port.out.refresh_token.SaveRefreshTokenPort;
 import dev.amir.synapse.identity.application.port.out.user.LoadUserPort;
 import dev.amir.synapse.identity.application.port.out.user.SaveUserPort;
+import dev.amir.synapse.identity.application.service.HandleProvisioningService;
 import dev.amir.synapse.identity.domain.entity.RefreshToken;
 import dev.amir.synapse.identity.domain.model.User;
 import dev.amir.synapse.identity.domain.port.in.google_signin.GoogleSignInCommand;
@@ -13,62 +16,68 @@ import dev.amir.synapse.identity.domain.port.in.google_signin.GoogleSignInUseCas
 import java.time.Duration;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class GoogleSignInHandler implements GoogleSignInUseCase {
-  private final CreateAccessTokenPort createAccessTokenPort;
+  private static final String SUPPORTED_PROVIDER = "google";
+
+  private final CreateAccessTokenPort createAccessToken;
   private final LoadUserPort loadUser;
   private final SaveUserPort saveUser;
-  private final GoogleOAuthPort googleOAuth;
+  private final OidcPort oidc;
   private final SaveRefreshTokenPort saveRefreshToken;
   private final Duration refreshTokenValidity;
+  private final HandleProvisioningService handleProvisioning;
 
   public GoogleSignInHandler(
-      CreateAccessTokenPort createAccessTokenPort,
+      CreateAccessTokenPort createAccessToken,
       LoadUserPort loadUser,
       SaveUserPort saveUser,
-      GoogleOAuthPort googleOAuth,
+      OidcPort oidc,
       SaveRefreshTokenPort saveRefreshToken,
-      @Value("${synapse.refresh-token.validity-days:30}") int validityDays) {
-    this.createAccessTokenPort = createAccessTokenPort;
+      @Value("${synapse.refresh-token.validity-days:30}") int validityDays,
+      HandleProvisioningService handleProvisioning) {
+    this.createAccessToken = createAccessToken;
     this.loadUser = loadUser;
     this.saveUser = saveUser;
-    this.googleOAuth = googleOAuth;
+    this.oidc = oidc;
     this.saveRefreshToken = saveRefreshToken;
-    this.refreshTokenValidity = Duration.ofDays(validityDays);
+    refreshTokenValidity = Duration.ofDays(validityDays);
+    this.handleProvisioning = handleProvisioning;
   }
 
-  @Transactional
   @Override
-  public GoogleSignInResult handle(GoogleSignInCommand googleSignInCommand) {
-    // 1.Verify with Google - Throws InvalidGoogleTokenException if bad.
-    var info = googleOAuth.verifyIdToken(googleSignInCommand.googleIdToken());
+  public GoogleSignInResult handle(GoogleSignInCommand command) {
+    var profile = oidc.verifyIdToken(command.googleIdToken());
+    requireGoogle(profile);
 
-    // 2. Find or Create user
     var user =
         loadUser
-            .findByGoogleId(info.googleId())
-            .map(
-                existing -> {
-                  existing.syncGoogleProfile(info);
-                  return existing;
-                })
-            .orElseGet(() -> User.registerViaGoogle(info));
-    var saved = saveUser.save(user);
+            .findByGoogleId(profile.subjectId())
+            .map(existing -> updateExistingUser(existing, profile))
+            .orElseGet(() -> handleProvisioning.provision(profile));
 
-    // Issue access token
-    var accessToken = createAccessTokenPort.createAccessToken(saved.getId());
-
-    var issued = RefreshToken.issue(saved.getId(), refreshTokenValidity);
-    saveRefreshToken.save(issued.token());
+    var accessToken = createAccessToken.createAccessToken(user.getId());
+    var issuedRefreshToken = RefreshToken.issue(user.getId(), refreshTokenValidity);
+    saveRefreshToken.save(issuedRefreshToken.token());
 
     return new GoogleSignInResult(
-        saved.getId().getValue().toString(),
+        user.getId().value().toString(),
+        user.getHandle().value(),
         accessToken,
-        issued.rawToken(),
-        saved.getFullName().getFirstName(),
-        saved.getFullName().getLastName(),
-        saved.getProfilePictureUrl());
+        issuedRefreshToken.rawToken(),
+        user.getDisplayName().value(),
+        user.getProfilePictureUrl());
+  }
+
+  private static void requireGoogle(VerifiedOidcProfile profile) {
+    if (!SUPPORTED_PROVIDER.equals(profile.provider())) {
+      throw OidcVerificationException.unsupportedProvider(profile.provider());
+    }
+  }
+
+  private User updateExistingUser(User existing, VerifiedOidcProfile profile) {
+    existing.syncGoogleProfile(profile.displayName(), profile.profilePictureUrl());
+    return saveUser.save(existing);
   }
 }

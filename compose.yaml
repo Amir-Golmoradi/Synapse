@@ -12,6 +12,14 @@ services:
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
       GOOGLE_TOKEN_INFO_URL: ${GOOGLE_TOKEN_INFO_URL}
+      SYNAPSE_WEBSOCKET_ALLOWED_ORIGINS: ${SYNAPSE_WEBSOCKET_ALLOWED_ORIGINS:-}
+      SYNAPSE_CALL_RINGING_TIMEOUT: ${SYNAPSE_CALL_RINGING_TIMEOUT:-45s}
+      SYNAPSE_CALL_CONNECTION_TIMEOUT: ${SYNAPSE_CALL_CONNECTION_TIMEOUT:-30s}
+      SYNAPSE_CALL_RECOVERY_TIMEOUT: ${SYNAPSE_CALL_RECOVERY_TIMEOUT:-30s}
+      SYNAPSE_CALL_LIVENESS_LEASE: ${SYNAPSE_CALL_LIVENESS_LEASE:-30s}
+      SYNAPSE_CALL_TIMEOUT_SWEEP: ${SYNAPSE_CALL_TIMEOUT_SWEEP:-1s}
+      SYNAPSE_CALL_TIMEOUT_BATCH_SIZE: ${SYNAPSE_CALL_TIMEOUT_BATCH_SIZE:-100}
+      SYNAPSE_VIDEO_STORAGE_ROOT: /var/lib/synapse/media
 
       SPRING_DATASOURCE_URL: jdbc:postgresql://synapse-database:${POSTGRES_CONTAINER_PORT}/${POSTGRES_DB}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
@@ -23,11 +31,11 @@ services:
       JWT_SECRET: ${JWT_SECRET}
     networks:
       - synapse-network
-    # Prevents startup crashing by waiting for database health checks to clear
+    volumes:
+      - media_data:/var/lib/synapse/media
+    # PostgreSQL is a correctness dependency; Redis is intentionally optional and fail-open.
     depends_on:
       synapse-database:
-        condition: service_healthy
-      synapse-cache:
         condition: service_healthy
 
   synapse-database:
@@ -68,6 +76,7 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  media_data:
 
 networks:
   synapse-network:

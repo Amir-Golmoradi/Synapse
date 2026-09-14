@@ -15,4 +15,5 @@ public record RoomSnapshot(
     RoomStatus status,
     Instant createdAt,
     Instant lastMessagesAt,
+    Long version,
     Set<RoomMember> initialMembers) {}

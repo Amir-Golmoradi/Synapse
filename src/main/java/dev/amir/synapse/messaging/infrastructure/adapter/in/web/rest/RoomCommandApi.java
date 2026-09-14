@@ -18,7 +18,7 @@ import jakarta.validation.Valid;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -42,27 +42,35 @@ public class RoomCommandApi {
 
   @PostMapping("/direct")
   public ResponseEntity<CreateDirectRoomResponse> createDirectRoom(
-      @Valid @RequestBody CreateDirectRequest request, @AuthenticationPrincipal UUID creatorId) {
-    var command = CreateDirectRoomCommand.from(creatorId, request.recipientId());
+      @Valid @RequestBody CreateDirectRequest request, Authentication authentication) {
+    var command =
+        CreateDirectRoomCommand.from(
+            UUID.fromString(authentication.getName()), request.recipientId());
     return ResponseEntity.status(HttpStatus.CREATED).body(directRoomUseCase.handle(command));
   }
 
   @PostMapping("/channel")
   public ResponseEntity<CreateChannelResponse> createChannelRoom(
-      @Valid @RequestBody CreateChannelRequest request, @AuthenticationPrincipal UUID creatorId) {
+      @Valid @RequestBody CreateChannelRequest request, Authentication authentication) {
     var command =
         CreateChannelCommand.from(
-            creatorId, request.name(), request.avatarUrl(), request.initialMemberIds());
+            UUID.fromString(authentication.getName()),
+            request.name(),
+            request.avatarUrl(),
+            request.initialMemberIds());
 
     return ResponseEntity.status(HttpStatus.CREATED).body(channelUseCase.handle(command));
   }
 
   @PostMapping("/group")
   public ResponseEntity<CreateGroupResponse> createGroupRoom(
-      @Valid @RequestBody CreateGroupRequest request, @AuthenticationPrincipal UUID creatorId) {
+      @Valid @RequestBody CreateGroupRequest request, Authentication authentication) {
     var command =
         CreateGroupCommand.from(
-            creatorId, request.name(), request.avatarUrl(), request.initialMemberIds());
+            UUID.fromString(authentication.getName()),
+            request.name(),
+            request.avatarUrl(),
+            request.initialMemberIds());
     return ResponseEntity.status(HttpStatus.CREATED).body(groupUseCase.handle(command));
   }
 }

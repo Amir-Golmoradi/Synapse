@@ -9,6 +9,9 @@ public class UserLookupMapper implements Function<User, UserLookupResult> {
   @Override
   public UserLookupResult apply(User user) {
     return new UserLookupResult(
-        user.getId().getValue(), user.getFullName().toString(), user.getProfilePictureUrl());
+        user.getId().getValue(),
+        user.getHandle().value(),
+        user.getDisplayName().getValue(),
+        user.getProfilePictureUrl());
   }
 }

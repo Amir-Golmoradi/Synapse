@@ -1,7 +1,6 @@
 package dev.amir.synapse.shared.domain;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 /**
@@ -38,7 +37,7 @@ public abstract class AggregateRoot<I, E extends DomainEvent> extends BaseEntity
 
   @Override
   public List<E> pullDomainEvents() {
-    var events = Collections.unmodifiableList(domainEvents);
+    var events = List.copyOf(domainEvents);
     domainEvents.clear();
     return events;
   }

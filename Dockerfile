@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # ─── Stage 1: Dependency Cache ────────────────────────────────────────────────
-FROM eclipse-temurin:21-jdk-alpine AS dependencies
+FROM eclipse-temurin:21.0.12_8-jdk-alpine AS dependencies
 
 WORKDIR /app
 
@@ -24,12 +24,15 @@ RUN ./mvnw --batch-mode --no-transfer-progress package -DskipTests
 
 
 # ─── Stage 3: Runtime ─────────────────────────────────────────────────────────
-FROM eclipse-temurin:21-jre-alpine AS runtime
+FROM eclipse-temurin:21.0.12_8-jre-alpine AS runtime
 
 WORKDIR /app
 
 RUN addgroup -S synapse \
-    && adduser -S synapse -G synapse
+    && adduser -S synapse -G synapse \
+    && apk add --no-cache ffmpeg \
+    && mkdir -p /var/lib/synapse/media \
+    && chown -R synapse:synapse /var/lib/synapse/media
 
 COPY --from=builder --chown=synapse:synapse /app/target/*.jar ./app.jar
 

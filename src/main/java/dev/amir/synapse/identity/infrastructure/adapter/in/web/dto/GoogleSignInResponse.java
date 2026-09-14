@@ -5,18 +5,18 @@ import org.jspecify.annotations.Nullable;
 
 public record GoogleSignInResponse(
     String userId,
+    String handle,
     String accessToken,
     String refreshToken,
-    String firstName,
-    String lastName,
+    String displayName,
     @Nullable String profilePictureUrl) {
   public static GoogleSignInResponse from(GoogleSignInResult result) {
     return new GoogleSignInResponse(
         result.id(),
+        result.handle(),
         result.accessToken(),
         result.refreshToken(),
-        result.firstName(),
-        result.lastName(),
+        result.displayName(),
         result.profilePictureUrl());
   }
 }
