@@ -17,7 +17,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Set up Java 21
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: "21"
@@ -26,6 +26,9 @@ jobs:
 
       - name: Ensure Maven Wrapper is executable
         run: chmod +x mvnw
+
+      - name: Install media inspection dependency
+        run: sudo apt-get update && sudo apt-get install --yes ffmpeg
 
       - name: Run tests and quality gates
         run: ./mvnw --batch-mode --no-transfer-progress clean verify

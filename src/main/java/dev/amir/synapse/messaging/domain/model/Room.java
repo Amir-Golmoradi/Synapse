@@ -6,6 +6,7 @@ import dev.amir.synapse.messaging.domain.enums.RoomType;
 import dev.amir.synapse.messaging.domain.event.MemberCreatedEvent;
 import dev.amir.synapse.messaging.domain.event.MemberRemovedEvent;
 import dev.amir.synapse.messaging.domain.event.MemberRoleChangedEvent;
+import dev.amir.synapse.messaging.domain.event.MembersAddedEvent;
 import dev.amir.synapse.messaging.domain.event.RoomArchivedEvent;
 import dev.amir.synapse.messaging.domain.event.RoomCreatedEvent;
 import dev.amir.synapse.messaging.domain.exception.RoomValidationException;
@@ -49,9 +50,14 @@ public final class Room extends AggregateRoot<RoomId, DomainEvent> {
   // ── State ───────────────────────────────────────────────────────────────
   private final RoomType roomType;
   private final Instant createdAt;
+  private final Long version;
 
+  /**
+   * Returns an unmodifiable snapshot of the current members. Callers must use {@link #addMember}
+   * and {@link #removeMember} for mutations.
+   */
   public Map<MemberId, RoomMember> getMembers() {
-    return members;
+    return Map.copyOf(members);
   }
 
   /**
@@ -79,6 +85,7 @@ public final class Room extends AggregateRoot<RoomId, DomainEvent> {
         Objects.requireNonNull(snapshot.createdAt(), "Created timestamp cannot be null");
     this.lastMessagesAt = Objects.requireNonNullElse(snapshot.lastMessagesAt(), this.createdAt);
     this.status = Objects.requireNonNull(snapshot.status(), "Room status cannot be null");
+    this.version = snapshot.version();
   }
 
   // ── Factory methods ─────────────────────────────────────────────────────
@@ -161,6 +168,7 @@ public final class Room extends AggregateRoot<RoomId, DomainEvent> {
   private static Room create(
       RoomType roomType, String name, String avatarUrl, Map<MemberId, RoomRole> roleAssignments) {
     var now = Instant.now();
+    var normalizedName = normalize(name);
 
     Set<RoomMember> initialMembers =
         roleAssignments.entrySet().stream()
@@ -168,7 +176,8 @@ public final class Room extends AggregateRoot<RoomId, DomainEvent> {
             .collect(Collectors.toSet());
 
     var snapshot =
-        createSnapshot(RoomId.generate(), roomType, name, avatarUrl, now, now, initialMembers);
+        createSnapshot(
+            RoomId.generate(), roomType, normalizedName, avatarUrl, now, now, initialMembers);
 
     RoomGuards.validateCreation(
         snapshot.roomType(), snapshot.name(), snapshot.avatarUrl(), memberIds(initialMembers));
@@ -234,6 +243,7 @@ public final class Room extends AggregateRoot<RoomId, DomainEvent> {
         RoomStatus.ACTIVE,
         createdAt,
         lastMessagesAt,
+        null,
         initialMembers);
   }
 
@@ -263,6 +273,38 @@ public final class Room extends AggregateRoot<RoomId, DomainEvent> {
     var newMember = RoomMember.create(memberId, RoomRole.MEMBER, Instant.now());
     members.put(memberId, newMember);
     registerEvent(new MemberCreatedEvent(getId(), memberId, newMember.getJoinedAt()));
+  }
+
+  /**
+   * Adds multiple members atomically.
+   *
+   * <p>If any requested member is invalid or already belongs to this room, no members are added and
+   * no domain event is emitted.
+   */
+  public void addMembers(Set<MemberId> memberIds) {
+    requireActive();
+    Objects.requireNonNull(memberIds, "Member IDs cannot be null");
+
+    if (memberIds.isEmpty()) {
+      return;
+    }
+
+    memberIds.forEach(memberId -> Objects.requireNonNull(memberId, "Member ID cannot be null"));
+    var newMemberIds = Set.copyOf(memberIds);
+
+    var existingMember =
+        newMemberIds.stream().filter(members::containsKey).findFirst().orElse(null);
+    if (existingMember != null) {
+      throw new RoomValidationException(
+          "User '%s' is already a member of this room.".formatted(existingMember.getValue()));
+    }
+
+    RoomGuards.validateCanAddMembers(getRoomType(), memberCount(), newMemberIds.size());
+
+    var joinedAt = Instant.now();
+    newMemberIds.forEach(
+        memberId -> members.put(memberId, RoomMember.create(memberId, RoomRole.MEMBER, joinedAt)));
+    registerEvent(new MembersAddedEvent(getId(), newMemberIds, joinedAt));
   }
 
   // ── Domain queries ──────────────────────────────────────────────────────
@@ -462,14 +504,13 @@ public final class Room extends AggregateRoot<RoomId, DomainEvent> {
     return createdAt;
   }
 
+  public Long getVersion() {
+    return version;
+  }
+
   public Instant getLastMessagesAt() {
     return lastMessagesAt;
   }
-
-  /**
-   * Returns an unmodifiable view of the current members. Callers must use {@link #addMember} and
-   * {@link #removeMember} for mutations.
-   */
 
   /**
    * Identity-based equality. Two Room instances are the same room if and only if they share the

@@ -46,7 +46,7 @@ class CreateGroupHandler implements CreateGroupUseCase {
     var creatorMemberId = MemberId.of(command.creatorId());
     var room = Room.createGroupRoom(creatorMemberId, command.name(), command.avatarUrl());
 
-    extraMembers.stream().map(MemberId::of).forEach(room::addMember);
+    room.addMembers(extraMembers.stream().map(MemberId::of).collect(Collectors.toSet()));
     roomPort.save(room);
 
     return new CreateGroupResponse(

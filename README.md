@@ -18,6 +18,7 @@
 [Overview](#overview) •
 [Architecture](#architecture) •
 [Getting Started](#getting-started) •
+[Messaging Protocol](#messaging-protocol) •
 [Documentation](#documentation) •
 [API Documentation](#api-documentation) •
 [Roadmap](#roadmap)
@@ -28,7 +29,7 @@
 
 ## Overview
 
-Synapse is a modular backend for real-time communication systems, including text messaging, user presence, voice calls, and video-call signaling.
+Synapse is a modular backend for real-time communication systems, including text messaging, user presence, and one-to-one Voice/Video Call signaling.
 
 The project is designed as a **modular monolith** so that architectural boundaries can be validated before introducing the operational complexity of microservices. Each bounded context owns its domain model, use cases, persistence adapters, and external integrations.
 
@@ -59,6 +60,7 @@ It is not currently presented as a production SaaS. The goal is to build and doc
 - Room membership validation through the Identity bounded context
 - Command/query separation for room creation and room retrieval
 - PostgreSQL persistence
+- One-to-one Voice/Video Call lifecycle, refresh recovery, and private WebRTC signaling
 - Automated formatting and static-analysis checks
 
 ### In Progress
@@ -66,7 +68,7 @@ It is not currently presented as a production SaaS. The goal is to build and doc
 - Real-time message delivery over WebSocket
 - Message persistence, acknowledgement, and delivery state
 - Redis-backed presence tracking
-- WebRTC offer, answer, and ICE-candidate signaling
+- Production client integration for the implemented one-to-one Voice/Video signaling protocol
 - Domain-event publication between bounded contexts
 - Broader integration and reliability testing
 
@@ -78,7 +80,7 @@ It is not currently presented as a production SaaS. The goal is to build and doc
 |---|---|---|
 | `identity` | Google authentication, user provisioning, Synapse token lifecycle, and internal user lookup | Implemented |
 | `messaging` | Rooms, memberships, messaging commands, and room queries | Room domain implemented; real-time delivery in progress |
-| `call` | Voice and video signaling through WebRTC | In progress |
+| `call` | One-to-one Voice/Video lifecycle, recovery, and WebRTC signaling | Implemented |
 | `presence` | Ephemeral user and session availability backed by Redis | In progress |
 | `shared` | Carefully limited cross-cutting primitives and technical support | Available |
 
@@ -160,7 +162,7 @@ flowchart LR
 | Consumer    | Provider   | Purpose                                                   | State       |
 |-------------|------------|-----------------------------------------------------------|-------------|
 | `messaging` | `identity` | Validate room members and resolve public user information | Implemented |
-| `call`      | `identity` | Validate call participants                                | Planned     |
+| `call`      | `identity` | Validate call participants                                | Implemented |
 | `messaging` | `presence` | Read participant availability                             | Planned     |
 | `call`      | `presence` | Coordinate call availability and session state            | Planned     |
 
@@ -447,6 +449,98 @@ Do not copy the `access_token`.
 
 ---
 
+## Messaging Protocol
+
+Synapse exposes native WebSocket/STOMP messaging at `ws://localhost:8020/ws`. Put the
+Synapse access token in the STOMP `CONNECT` frame; it is not an HTTP query parameter.
+
+```javascript
+import { Client } from "@stomp/stompjs";
+
+const seenMessageIds = new Set();
+const roomId = "<room-uuid>";
+const accessToken = "<synapse-access-token>";
+
+function reconcile(message) {
+  if (seenMessageIds.has(message.messageId)) return;
+  seenMessageIds.add(message.messageId);
+  // Replace an optimistic message by matching message.clientMessageId, then render it.
+}
+
+async function recoverLatestMessages() {
+  const response = await fetch(
+    `http://localhost:8020/api/v1/room/${roomId}/messages?limit=50`,
+    { headers: { Authorization: `Bearer ${accessToken}` } },
+  );
+  const page = await response.json();
+  page.items.forEach(reconcile);
+}
+
+const client = new Client({
+  brokerURL: "ws://localhost:8020/ws",
+  connectHeaders: { Authorization: `Bearer ${accessToken}` },
+  reconnectDelay: 5_000,
+  onConnect() {
+    client.subscribe(`/topic/rooms/${roomId}`, frame => {
+      reconcile(JSON.parse(frame.body));
+    });
+    client.subscribe("/user/queue/errors", frame => {
+      console.error(JSON.parse(frame.body));
+    });
+    recoverLatestMessages();
+  },
+});
+
+client.activate();
+
+export function sendMessage(text, clientMessageId = crypto.randomUUID()) {
+  client.publish({
+    destination: `/app/rooms/${roomId}/messages`,
+    body: JSON.stringify({ clientMessageId, text }),
+  });
+  return clientMessageId;
+}
+```
+
+The server persists a message before publishing this canonical payload:
+
+```json
+{
+  "messageId": "uuid",
+  "roomId": "uuid",
+  "senderId": "uuid",
+  "clientMessageId": "uuid",
+  "text": "message text",
+  "createdAt": "2026-08-13T10:00:00Z"
+}
+```
+
+Messages are text-only and limited to 4,096 Unicode code points. Active members may
+send in direct and group rooms; channels accept sends only from owners and admins.
+Members of archived rooms may read history but cannot send or subscribe. Live delivery
+is best-effort, so use REST history to recover committed messages after a gap. Configure
+browser origins with `SYNAPSE_WEBSOCKET_ALLOWED_ORIGINS`; an empty value keeps the same-origin
+default.
+
+Retry an uncertain send with the same `clientMessageId` and identical text. Synapse
+re-emits the same canonical message; reusing that ID for different data returns
+`MESSAGE_IDEMPOTENCY_CONFLICT` on `/user/queue/errors`. Deduplicate live and history
+results by `messageId`, and reconcile optimistic UI state by `clientMessageId`.
+
+History is newest-first. Follow a non-null `nextCursor` without decoding or changing
+it to fetch older pages:
+
+```http
+GET /api/v1/room/{roomId}/messages?limit=50&cursor={nextCursor}
+Authorization: Bearer <synapse-access-token>
+```
+
+After reconnecting, fetch the newest page (and older pages as needed until a known
+`messageId` is reached). A token is checked when STOMP connects; reconnect with a
+fresh token after it expires.
+
+---
+
 ## API Documentation
 
 Synapse exposes an OpenAPI specification and interactive Swagger UI.
@@ -514,8 +608,8 @@ The Maven initialization step links the repository's pre-commit hook into `.git/
 - [x] Channel creation
 - [x] Member validation through Identity
 - [x] User-room query
-- [ ] WebSocket session lifecycle
-- [ ] Message persistence
+- [x] Native WebSocket/STOMP message delivery
+- [x] Message persistence and cursor pagination
 - [ ] Delivery acknowledgements
 - [ ] Read receipts and typing indicators
 
@@ -541,8 +635,10 @@ The Maven initialization step links the repository's pre-commit hook into `.git/
 ## Current Limitations
 
 - Synapse is currently deployed as a modular monolith.
-- Real-time WebSocket message delivery is still under development.
+- Native WebSocket/STOMP delivery is available for the single-instance deployment model.
 - WebRTC media does not pass through Synapse; the backend is intended to coordinate signaling.
+- Internet-reliable calling requires a separately operated TURN service.
+- Call notification delivery is best effort; clients reconcile through `GET /api/v1/calls/current`.
 - TURN infrastructure is not included.
 - Presence consistency across multiple application instances is not complete.
 - The repository is intended for engineering demonstration and local development, not public production deployment in its current state.
