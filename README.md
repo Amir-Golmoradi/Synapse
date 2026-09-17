@@ -659,12 +659,20 @@ In-depth guides live in the [`docs/`](docs/) directory:
 
 Issues, architectural feedback, and focused pull requests are welcome. Please read the **[Contributing Guide](CONTRIBUTING.md)** before opening a pull request.
 
-Before opening a pull request:
+`main` is the only permanent branch. Create working branches directly from it
+using `amg-<short-description>`, keep them current by merging `origin/main`, and
+squash merge pull requests back into `main`. Human commit and pull request titles
+use short, direct, imperative wording.
+
+Useful local checks are:
 
 ```bash
 ./mvnw spotless:apply
 ./mvnw clean verify
 ```
+
+GitHub Actions runs the repository quality gates for every pull request and every
+push to `main`.
 
 Keep changes inside the bounded context that owns the behavior, and avoid introducing dependencies on another context's persistence or internal domain model.
 
