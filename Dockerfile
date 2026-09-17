@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # ─── Stage 1: Dependency Cache ────────────────────────────────────────────────
-FROM eclipse-temurin:21.0.12_8-jdk-alpine AS dependencies
+FROM eclipse-temurin:25.0.4_7-jdk-alpine AS dependencies
 
 WORKDIR /app
 
@@ -24,7 +24,7 @@ RUN ./mvnw --batch-mode --no-transfer-progress package -DskipTests
 
 
 # ─── Stage 3: Runtime ─────────────────────────────────────────────────────────
-FROM eclipse-temurin:21.0.12_8-jre-alpine AS runtime
+FROM eclipse-temurin:25.0.4_7-jre-alpine AS runtime
 
 WORKDIR /app
 
