@@ -193,19 +193,10 @@ spring:
 
 ### Why not? It seems easier.
 
-It seems easier, but it quietly breaks our Git workflow. Synapse promotes code
-through three permanent branches:
-
-```text
-develop  →  staging  →  main
-```
-
-If we hardcoded `active: dev` in `develop` and `active: prod` in `main`, that one
-line would be **different on every branch forever**. Every time we promote
-`develop → staging → main`, Git would see a conflict on that line. Our project
-requires a clean, linear history, so this would cause friction on every single
-release. The whole point of promotion is that the **same code** moves forward
-unchanged — and a per-branch profile value sabotages that.
+It seems easier, but it couples runtime behavior to source control. A branch can
+be run locally, in CI, or in any deployed environment, so its name cannot choose
+the correct runtime configuration. Hardcoding a profile would also make the same
+source produce environment-specific artifacts instead of one reusable image.
 
 ### So how is it chosen?
 
@@ -216,7 +207,7 @@ don't write any code to consume it.
 
 This way:
 
-- The code is identical on every branch.
+- The source remains independent of its runtime environment.
 - The same built image can run as `dev`, `stage`, or `prod` just by changing one
   environment variable.
 
@@ -224,15 +215,16 @@ This way:
 
 ## 5. How environments map to profiles
 
-| Branch    | Environment | `SPRING_PROFILES_ACTIVE` | Where it's set |
-|-----------|-------------|--------------------------|----------------|
-| `develop` | Development | `dev`                    | `compose.yaml` locally; deployment config when deployed |
-| `staging` | Staging     | `stage`                  | deployment config |
-| `main`    | Production  | `prod`                   | deployment config |
+| Environment | `SPRING_PROFILES_ACTIVE` | Where it's set |
+|-------------|--------------------------|----------------|
+| Local development | `dev` | `.env` / `compose.yaml` |
+| Staging | `stage` | deployment configuration |
+| Production | `prod` | deployment configuration |
+| Automated tests | `test` | test runner or test configuration |
 
-The same container image is promoted through all three. Only the injected
-`SPRING_PROFILES_ACTIVE` (and the secrets) differ. We never build a separate
-image per environment.
+Git branches do not select Spring profiles. The same container image can run in
+each deployed environment; only the injected profile and secrets differ. We do
+not build a separate image per environment.
 
 > The "deployment config" above refers to our GitOps/Helm setup
 > (`values-dev.yaml`, `values-stage.yaml`, `values-prod.yaml`). If you only work

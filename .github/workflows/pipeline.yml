@@ -3,14 +3,17 @@ name: Synapse CI
 on:
   pull_request:
     branches:
-      - develop
-      - staging
       - main
     types:
       - opened
+      - edited
       - synchronize
       - reopened
       - ready_for_review
+
+  push:
+    branches:
+      - main
 
   workflow_dispatch:
 

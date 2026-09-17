@@ -4,7 +4,7 @@
     "config:recommended"
   ],
   "baseBranchPatterns": [
-    "develop"
+    "main"
   ],
   "branchPrefix": "chore/update-",
   "semanticCommits": "enabled",
@@ -13,7 +13,7 @@
   "commitMessageAction": "update",
   "commitMessageTopic": "{{depName}}",
   "commitMessageExtra": "to {{newVersion}}",
-  "prBodyTemplate": "## Summary\n\nAutomated dependency update for `{{depName}}` managed by Renovate.\n\n## Changes\n\n- Update `{{depName}}` from `{{currentVersion}}` to `{{newVersion}}`\n\n## Verification\n\n- `./mvnw clean verify`\n- Relevant tests were executed\n- Build completed successfully\n\n## Risks\n\nReview the release notes below for potential breaking changes.\n\n## Database Changes\n\nNone\n\n---\n\n### Renovate Details\n\n{{{table}}}\n\n{{{warnings}}}\n\n{{{notes}}}\n\n{{{changelogs}}}",
+  "prBodyTemplate": "## Summary\n\nAutomated dependency update managed by Renovate.\n\n## Verification\n\nReview the GitHub Actions results for the current commit.\n\n## Risks\n\nReview the release notes below for potential breaking changes.\n\n## Database Changes\n\nNone\n\n---\n\n### Renovate Details\n\n{{{table}}}\n\n{{{warnings}}}\n\n{{{notes}}}\n\n{{{changelogs}}}",
   "packageRules": [
     {
       "matchUpdateTypes": [

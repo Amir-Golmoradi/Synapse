@@ -6,13 +6,25 @@ Date: 2026-06-26
 
 Accepted
 
+## Workflow amendment — 2026-09-17
+
+Synapse now uses trunk-based development with `main` as its only permanent
+branch. References below to `develop → staging → main` describe the repository
+workflow that existed when this decision was recorded. They are historical
+context, not current contributor instructions.
+
+The decision remains valid: runtime environments select profiles externally,
+independently of Git branches. Working branches are created from `main`, and the
+same source and immutable image may be used in development, staging, or
+production.
+
 ## Context
 
 Synapse must run in three environments — development, staging, and
 production — that differ in logging verbosity, SQL echo, and whether API
-documentation is exposed. The repository uses three permanent branches
-(`develop`, `staging`, `main`) promoted strictly through pull requests, with
-required linear history and squash merges.
+documentation is exposed. At the time of this decision, the repository used
+three permanent branches (`develop`, `staging`, `main`) promoted through pull
+requests.
 
 The intuitive approach is to set the active Spring profile in `application.yml`
 and give each branch a different value: `dev` on `develop`, `stage` on
@@ -41,8 +53,8 @@ Configuration is layered:
 - `application-dev.yml`, `application-stage.yml`, `application-prod.yml`, and
   `application-test.yml` contain only overrides.
 
-All profile files are identical across every branch. The same immutable image
-is promoted through all environments; only the injected environment variables
+All profile files are part of the same source tree. The same immutable image
+can run in all environments; only the injected environment variables
 differ. Environment-to-profile mapping is expressed in deployment
 configuration (Compose locally, Helm `values-{env}.yaml` when deployed), not in
 the application source.
@@ -51,8 +63,8 @@ the application source.
 
 ### Positive
 
-- Promotion pull requests carry no profile-related diff, so there is nothing to
-  conflict on. Linear history is preserved.
+- Branches carry no profile-specific source diff, so they remain portable across
+  runtime environments.
 - One immutable image is built once and promoted, matching the release pipeline.
 - The base config alone is bootable, so no profile is required for a context to
   start (relevant for future `@SpringBootTest`).
