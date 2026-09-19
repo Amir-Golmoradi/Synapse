@@ -8,11 +8,12 @@
 
 **A modular real-time communication backend for messaging, presence, and WebRTC signaling.**
 
-[![CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-2088FF?style=flat-square&logo=githubactions&logoColor=white)](https://github.com/dev-amir/synapse/actions)
+[![CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-2088FF?style=flat-square&logo=githubactions&logoColor=white)](https://github.com/Amir-Golmoradi/Synapse/actions)
 [![Java](https://img.shields.io/badge/Java-21-orange?style=flat-square&logo=openjdk)](https://openjdk.org)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.0.6-brightgreen?style=flat-square&logo=springboot)](https://spring.io/projects/spring-boot)
 [![Architecture](https://img.shields.io/badge/Architecture-Hexagonal%20%7C%20DDD-blueviolet?style=flat-square)](https://alistair.cockburn.us/hexagonal-architecture/)
 [![Code Style](https://img.shields.io/badge/Code%20Style-Google-blue?style=flat-square)](https://google.github.io/styleguide/javaguide.html)
+[![Author](https://img.shields.io/badge/Author-Amir%20Hossein%20Golmoradi-000000?style=flat-square)](https://github.com/Amir-Golmoradi)
 [![License](https://img.shields.io/badge/License-MIT-yellow?style=flat-square)](LICENSE)
 
 [Overview](#overview) •
@@ -21,7 +22,8 @@
 [Messaging Protocol](#messaging-protocol) •
 [Documentation](#documentation) •
 [API Documentation](#api-documentation) •
-[Roadmap](#roadmap)
+[Roadmap](#roadmap) •
+[Author](#author)
 
 </div>
 
@@ -269,8 +271,8 @@ docker compose version
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/dev-amir/synapse.git
-cd synapse
+git clone https://github.com/Amir-Golmoradi/Synapse.git
+cd Synapse
 ```
 
 ### 2. Configure the Environment
@@ -434,7 +436,7 @@ Do not copy the `access_token`.
 <summary><strong>Authentication troubleshooting</strong></summary>
 
 | Problem                                | Likely Cause                                        | Resolution                            |
-|----------------------------------------|-----------------------------------------------------|---------------------------------------|
+|----------------------------------------|-----------------------------------------------------|----------------------------------------|
 | `400 Bad Request`                      | Incorrect request property                          | Send `idToken`                        |
 | `401 Unauthorized`                     | Google token is invalid or expired                  | Generate a fresh ID token             |
 | `401 Unauthorized`                     | A Google access token was sent                      | Send the Google ID token              |
@@ -546,7 +548,7 @@ fresh token after it expires.
 Synapse exposes an OpenAPI specification and interactive Swagger UI.
 
 | Interface    | URL                                           | Purpose                               |
-|--------------|-----------------------------------------------|---------------------------------------|
+|--------------|-----------------------------------------------|----------------------------------------|
 | Swagger UI   | `http://localhost:8020/swagger-ui/index.html` | Explore and execute API requests      |
 | OpenAPI JSON | `http://localhost:8020/v3/api-docs`           | Consume the raw OpenAPI specification |
 
@@ -559,7 +561,7 @@ The OpenAPI document is the source of truth for current request and response sch
 The repository is configured to run formatting, static analysis, tests, and a full Maven verification build.
 
 | Check               | Tool                             | Execution                  |
-|---------------------|----------------------------------|----------------------------|
+|---------------------|-----------------------------------|-----------------------------|
 | Formatting          | Spotless with Google Java Format | Local hook and CI          |
 | Style rules         | Checkstyle                       | CI and manual verification |
 | Static analysis     | PMD and SpotBugs                 | CI and manual verification |
@@ -678,6 +680,32 @@ Keep changes inside the bounded context that owns the behavior, and avoid introd
 
 ---
 
+## Author
+
+**Synapse** is designed, architected, and developed independently by:
+
+<div align="center">
+
+### Amir Hossein Golmoradi
+
+**Backend Engineer**
+
+[![GitHub](https://img.shields.io/badge/GitHub-Amir--Golmoradi-181717?style=flat-square&logo=github&logoColor=white)](https://github.com/Amir-Golmoradi)
+
+</div>
+
+Amir is the sole author, architect, and maintainer of this project — from domain
+modeling and hexagonal architecture design through implementation, infrastructure,
+and documentation. All architectural decisions, ADRs, and engineering trade-offs
+recorded in this repository reflect his individual design work.
+
+For questions, architectural feedback, or collaboration inquiries, please open an
+issue or reach out via GitHub.
+
+---
+
 ## License
+
+Copyright © 2026 **Amir Hossein Golmoradi**. All rights reserved except as granted below.
 
 This project is licensed under the [MIT License](LICENSE).
